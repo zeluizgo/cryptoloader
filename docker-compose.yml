@@ -13,11 +13,7 @@ services:
 
 volumes:
   etl_data:
-    driver: glustermochhoa
-    driver_opts:
-      volume-name: vol1  # This is the GlusterFS volume name
-      transport: tcp
-      backup-volfile-servers: ubuntu-pi-01.local,ubuntu-pi-02.local,ubuntu-pi-04.local
+    external: true
 
 networks:
   crypto-network:
