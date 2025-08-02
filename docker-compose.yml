@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  etl:
+    image: cryptoloader:latest
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - etl_data:/app/data
+
+volumes:
+  etl_data:
+    driver: glustermochhoa
+    driver_opts:
+      volume-name: vol1  # This is the GlusterFS volume name
+      transport: tcp
+      backup-volfile-servers: ubuntu-pi-01,ubuntu-pi-02,ubuntu-pi-04
+
+networks:
+  crypto-network:
+    external: true
