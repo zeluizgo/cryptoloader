@@ -9,7 +9,7 @@ services:
       restart_policy:
         condition: on-failure
     volumes:
-      - etl_data:/app/data
+      - etl_data:/work
 
 volumes:
   etl_data:
@@ -17,7 +17,7 @@ volumes:
     driver_opts:
       volume-name: vol1  # This is the GlusterFS volume name
       transport: tcp
-      backup-volfile-servers: ubuntu-pi-02.local,ubuntu-pi-04.local
+      backup-volfile-servers: ubuntu-pi-01.local,ubuntu-pi-02.local,ubuntu-pi-04.local
 
 networks:
   crypto-network:
