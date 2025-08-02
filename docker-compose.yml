@@ -17,7 +17,7 @@ volumes:
     driver_opts:
       volume-name: vol1  # This is the GlusterFS volume name
       transport: tcp
-      backup-volfile-servers: ubuntu-pi-02,ubuntu-pi-04
+      backup-volfile-servers: ubuntu-pi-02.local,ubuntu-pi-04.local
 
 networks:
   crypto-network:
