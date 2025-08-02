@@ -9,10 +9,10 @@ services:
       restart_policy:
         condition: on-failure
     volumes:
-      - etl_data:/work
+      - vol1:/work
 
 volumes:
-  etl_data:
+  vol1:
     external: true
 
 networks:
