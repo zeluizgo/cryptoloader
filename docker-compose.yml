@@ -15,7 +15,7 @@ volumes:
   etl_data:
     driver: glustermochhoa
     driver_opts:
-      volume-name: vol1  # This is the GlusterFS volume name
+      volume-name: dataetl_etl_data  # This is the GlusterFS volume name
       transport: tcp
       backup-volfile-servers: ubuntu-pi-01,ubuntu-pi-02,ubuntu-pi-04
 
