@@ -10,6 +10,9 @@ services:
         condition: on-failure
     volumes:
       - etl_data:/glustervol1
+    networks:
+      - crypto-network
+
 
 volumes:
   etl_data:
