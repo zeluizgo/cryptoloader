@@ -9,11 +9,15 @@ services:
       restart_policy:
         condition: on-failure
     volumes:
-      - vol1:/work
+      - etl_data:/glustervol1
 
 volumes:
-  vol1:
-    external: true
+  etl_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/vol1
 
 networks:
   crypto-network:
