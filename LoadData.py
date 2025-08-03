@@ -90,5 +90,5 @@ for asset in assets:
                 f.close()
 
                 print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + " - copiando arquivo csv para pasta distribuida o arquivo:" + filenameFinal)
-                copyfile("/work/" + filenameFinal,"/glustervol1/work" + filenameFinal)
+                copyfile("/work/" + filenameFinal,"/glustervol1/work/" + filenameFinal)
 
