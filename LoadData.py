@@ -82,12 +82,12 @@ for asset in assets:
             print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + " - lendo arquivo csv +c append final:" + filenameOrig)
             fOrig = open('./downloads/'+filenameOrig,'r')
 
-            f = open("./work/" +filenameFinal,'a')
+            f = open("/work/" +filenameFinal,'a')
             #f.write(fOrig.read())
             f.writelines("%s" % fOrig.read())
             #f.writelines("%s\n" % t for t in cotacoes)
             f.close()
 
             print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + " - copiando arquivo csv para pasta distribuida o arquivo:" + filenameFinal)
-            copyfile("./work/" + filenameFinal,"/glustervol1/work" + filenameFinal)
+            copyfile("/work/" + filenameFinal,"/glustervol1/work" + filenameFinal)
 
