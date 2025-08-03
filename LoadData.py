@@ -45,7 +45,7 @@ for asset in assets:
 
         print(bForceTIllStoppedEarlier)
 
-        if not(bForceTIllStoppedEarlier):
+        if not(bForceTIllStoppedEarlier) and asset["exchange"] == "binance":
 
             print('Downloading started')
             filename = idAsset + "-" + possibleTimeFrames[iCount] + "-" + actual_Daily.strftime("%Y-%m-%d") + ".zip"
@@ -60,34 +60,35 @@ for asset in assets:
 
             # Downloading the file by sending the request to the URL
             req = requests.get(url)
-            
-            # Split URL to get the file name
-            #filename = url.split('/')[-1]
-            
-            # Writing the file to the local file system
-            #with open(filename,'wb') as output_file:
+
+            if (req.status_code == 200):
+                # Split URL to get the file name
+                #filename = url.split('/')[-1]
+
+                # Writing the file to the local file system
+                #with open(filename,'wb') as output_file:
             #    output_file.write(req.content)
-            print('Downloading Completed')
+                print('Downloading Completed')
 
-            # importing necessary modules
-            import zipfile
-            from io import BytesIO
+                # importing necessary modules
+                import zipfile
+                from io import BytesIO
 
-            print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + " - Extraindo de zip:" + filename)
-            # extracting the zip file contents
-            zipfile= zipfile.ZipFile(BytesIO(req.content))
-            zipfile.extractall('./downloads/') #/Users/joseluiz/Documents/trade_codes/crypto')
+                print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + " - Extraindo de zip:" + filename)
+                # extracting the zip file contents
+                zipfile= zipfile.ZipFile(BytesIO(req.content))
+                zipfile.extractall('./downloads/') #/Users/joseluiz/Documents/trade_codes/crypto')
 
 
-            print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + " - lendo arquivo csv +c append final:" + filenameOrig)
-            fOrig = open('./downloads/'+filenameOrig,'r')
+                print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + " - lendo arquivo csv +c append final:" + filenameOrig)
+                fOrig = open('./downloads/'+filenameOrig,'r')
 
-            f = open("/work/" +filenameFinal,'a')
-            #f.write(fOrig.read())
-            f.writelines("%s" % fOrig.read())
-            #f.writelines("%s\n" % t for t in cotacoes)
-            f.close()
+                f = open("/work/" +filenameFinal,'a')
+                #f.write(fOrig.read())
+                f.writelines("%s" % fOrig.read())
+                #f.writelines("%s\n" % t for t in cotacoes)
+                f.close()
 
-            print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + " - copiando arquivo csv para pasta distribuida o arquivo:" + filenameFinal)
-            copyfile("/work/" + filenameFinal,"/glustervol1/work" + filenameFinal)
+                print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + " - copiando arquivo csv para pasta distribuida o arquivo:" + filenameFinal)
+                copyfile("/work/" + filenameFinal,"/glustervol1/work" + filenameFinal)
 

@@ -11,5 +11,5 @@ while true; do
     python3 /app/LoadData.py
 
     echo "[entrypoint] Sleeping for 15 minutes..."
-    sleep 900  # 15 minutes in seconds
+    sleep 14400  # 240 minutes (4h) in seconds
 done
