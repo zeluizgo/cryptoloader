@@ -5,7 +5,7 @@ bForceTIllStoppedEarlier = False
 symbolStoppedEarlier = "VETBTC"
 timeFrameStoppedEarlier = "30m"
 
-possibleTimeFrames = ["30m","1h","4h","1d","1w"]
+possibleTimeFrames = ["15m","30m","1h","4h","1d","1w"]
 #id_moedas = [ "MATICUSDT","ETHBTC", "BTCUSDT"]
 
 url_prefix_Daily = "https://data.binance.vision/data/spot/daily/klines/"
