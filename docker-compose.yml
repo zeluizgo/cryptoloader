@@ -12,6 +12,7 @@ services:
       - etl_data:/glustervol1
     networks:
       - crypto-network
+      - spark-hadoop_cluster-network
 
 
 volumes:
@@ -20,8 +21,10 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /mnt/vol1
+      device: /media/glusterfs
 
 networks:
   crypto-network:
+    external: true
+  spark-hadoop_cluster-network:
     external: true
