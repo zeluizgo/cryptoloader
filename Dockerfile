@@ -3,7 +3,7 @@ FROM python:3.11-slim
 
 # ---- system deps (zip is needed at build time)
 RUN apt-get update \
- && apt-get install -y --no-install-recommends zip rsync \
+ && apt-get install -y --no-install-recommends zip rsync openssh-client \
  && rm -rf /var/lib/apt/lists/*
 
 # Create and set work directory

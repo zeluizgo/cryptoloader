@@ -229,7 +229,7 @@ def sync_downloaded_files(symbol: str, exchange: str):
     src_files = glob.glob(src_pattern)
     if src_files:
         for node in nodes:
-            rsync_cmd = ["rsync", "-av", "--rsync-path=sudo rsync"] + src_files + [f"root@{node}:/glustervol1/work/"]
+            rsync_cmd = ["rsync", "-av", "-e", "ssh"] + src_files + [f"root@{node}:/glustervol1/work/"]
             print(f"Running for node({node}):", " ".join(rsync_cmd))
             rs = subprocess.run(rsync_cmd, capture_output=True, text=True)
             print(f"rsync returncode for node({node})=", rs.returncode)
@@ -243,7 +243,10 @@ def submit_spark_job(symbol: str, exchange: str):
     if exchange != "binance":
         print("Spark job not implemented for exchange:", exchange)
         return
-    spark_submit_cmd = ["spark-submit", "--py-files", "/app/dao.zip", "/app/SparkJob.py"]
+
+
+    spark_submit_cmd = ["python", "/app/SparkJob.py", symbol]
+    #spark_submit_cmd = ["spark-submit", "--py-files", "/app/dao.zip", "/app/SparkJob.py"]
     print(f"Running spark-submit:", " ".join(spark_submit_cmd))
     rs = subprocess.run(spark_submit_cmd, capture_output=True, text=True)
     print(f"spark-submit returncode:", rs.returncode)
