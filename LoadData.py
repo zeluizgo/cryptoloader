@@ -2,11 +2,9 @@
 from datetime import datetime, timedelta
 from calendar import monthrange
 import requests
-import pandas as pd
 import zipfile
 import os
 from io import BytesIO
-import json
 
 import subprocess
 import glob
