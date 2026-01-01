@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Make sure we exit if any command fails
-set -e
+#set -e
 
 echo "[entrypoint] Starting periodic ETL execution (every 15 minutes)..."
 
@@ -26,6 +26,14 @@ chmod 644 /home/appuser/.ssh/known_hosts && \
 while true; do
     echo "[entrypoint] Running ETL job at $(date)..."
     python3 /app/LoadData.py
+
+    EXIT_CODE=$?
+
+    if [ $EXIT_CODE -ne 0 ]; then
+        echo "[entrypoint] WARNING: LoadData.py exited with code $EXIT_CODE"
+    else
+        echo "[entrypoint] ETL job completed successfully"
+    fi
 
     echo "[entrypoint] Sleeping for 15 minutes..."
     sleep 14400  # 240 minutes (4h) in seconds
