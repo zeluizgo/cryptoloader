@@ -45,7 +45,7 @@ RUN chown -R appuser:appuser /app
 # -------------------------
 # 7. Environment
 # -------------------------
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
 ENV PATH=$JAVA_HOME/bin:$PATH
 ENV PYTHONPATH=/app
 ENV SPARK_PYTHON=python3

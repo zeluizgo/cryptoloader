@@ -224,12 +224,13 @@ def sync_downloaded_files(symbol: str, exchange: str):
         return
     # primeiro: rsync dos arquivos locais (expande o glob em Python)
     #nodes = ["ubuntu-pi-01.local", "ubuntu-pi-02.local", "ubuntu-pi-03.local", "ubuntu-pi-04.local"]
-    nodes = ["spark-master", "spark-worker-1", "spark-worker-2", "spark-worker-3"]
+    #nodes = ["spark-master", "spark-worker-1", "spark-worker-2", "spark-worker-3"]
+    nodes = ["192.168.15.119", "192.168.15.107", "192.168.15.101", "192.168.15.43"]
     src_pattern = "/glustervol1/work/" + symbol + "*"
     src_files = glob.glob(src_pattern)
     if src_files:
         for node in nodes:
-            rsync_cmd = ["rsync", "-av", "-e", "ssh"] + src_files + [f"ubuntu@{node}:/glustervol1/work/"]
+            rsync_cmd = ["rsync", "-av", "-e", "ssh"] + src_files + [f"ubuntu@{node}:/media/glusterfs/work/"]
             print(f"Running for node({node}):", " ".join(rsync_cmd))
             rs = subprocess.run(rsync_cmd, capture_output=True, text=True)
             print(f"rsync returncode for node({node})=", rs.returncode)

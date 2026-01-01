@@ -12,11 +12,18 @@ echo "[entrypoint] Starting periodic ETL execution (every 15 minutes)..."
 # - stores ONLY public host keys
 # - avoids interactive SSH prompts
 # - no secrets baked into image
+#ssh-keyscan \
+#    spark-master \
+#    spark-worker-1 \
+#    spark-worker-2 \
+#    spark-worker-3 \
+#    >> /home/appuser/.ssh/known_hosts
+
 ssh-keyscan \
-    spark-master \
-    spark-worker-1 \
-    spark-worker-2 \
-    spark-worker-3 \
+    192.168.15.119 \
+    192.168.15.107 \
+    192.168.15.101 \
+    192.168.15.43 \
     >> /home/appuser/.ssh/known_hosts
 
 chmod 644 /home/appuser/.ssh/known_hosts && \
