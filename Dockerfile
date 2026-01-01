@@ -24,22 +24,6 @@ RUN mkdir -p /home/appuser/.ssh && \
     chmod 700 /home/appuser/.ssh && \
     chown -R appuser:appuser /home/appuser/.ssh
 
-# -------------------------
-# 4. Preload known_hosts
-# -------------------------
-# SAFE:
-# - stores ONLY public host keys
-# - avoids interactive SSH prompts
-# - no secrets baked into image
-RUN ssh-keyscan \
-    spark-master \
-    spark-worker-1 \
-    spark-worker-2 \
-    spark-worker-3 \
-    >> /home/appuser/.ssh/known_hosts
-
-RUN chmod 644 /home/appuser/.ssh/known_hosts && \
-    chown appuser:appuser /home/appuser/.ssh/known_hosts
 
 # Create and set work directory
 WORKDIR /app
