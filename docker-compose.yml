@@ -3,6 +3,8 @@ version: '3.8'
 services:
   etl:
     image: cryptoloader:latest
+    hostname: etl-firstattempt
+    container_name: etl-firstattempt
     deploy:
       mode: replicated
       replicas: 1
@@ -10,6 +12,7 @@ services:
         condition: on-failure
     volumes:
       - etl_data:/glustervol1
+      - /home/ubuntu/.ssh:/home/appuser/.ssh:ro
     networks:
       - crypto-network
       - spark-hadoop_cluster-network

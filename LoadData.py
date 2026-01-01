@@ -245,7 +245,7 @@ def submit_spark_job(symbol: str, exchange: str):
         return
 
 
-    spark_submit_cmd = ["python", "/app/SparkJob.py", symbol]
+    spark_submit_cmd = ["python3", "/app/SparkJob.py", symbol]
     #spark_submit_cmd = ["spark-submit", "--py-files", "/app/dao.zip", "/app/SparkJob.py"]
     print(f"Running spark-submit:", " ".join(spark_submit_cmd))
     rs = subprocess.run(spark_submit_cmd, capture_output=True, text=True)
