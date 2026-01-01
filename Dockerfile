@@ -5,7 +5,7 @@ FROM python:3.11-slim
 # 1. System dependencies
 # -------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openjdk-17-jre-headless \
+    openjdk-21-jre-headless \
     openssh-client \
     rsync \
     zip \
