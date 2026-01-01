@@ -45,13 +45,14 @@ RUN chown -R appuser:appuser /app
 # -------------------------
 # 7. Environment
 # -------------------------
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+ENV PATH=$JAVA_HOME/bin:$PATH
 ENV PYTHONPATH=/app
 ENV SPARK_PYTHON=python3
 ENV SPARK_DRIVER_PYTHON=python3
 
 # Ship dao.zip to YARN executors automatically
-ENV PYSPARK_SUBMIT_ARGS="--py-files /app/dao.zip pyspark-shell"
+ENV PYSPARK_SUBMIT_ARGS="--master yarn --py-files /app/dao.zip pyspark-shell"
 
 # Copy application files
 COPY LoadData.py .

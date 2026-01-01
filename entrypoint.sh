@@ -23,10 +23,10 @@ chmod 644 /home/appuser/.ssh/known_hosts && \
     chown appuser:appuser /home/appuser/.ssh/known_hosts
 
 # Infinite loop to run every 15 minutes
-#while true; do
-echo "[entrypoint] Running ETL job at $(date)..."
-python3 /app/LoadData.py
+while true; do
+    echo "[entrypoint] Running ETL job at $(date)..."
+    python3 /app/LoadData.py
 
- #   echo "[entrypoint] Sleeping for 15 minutes..."
- #   sleep 14400  # 240 minutes (4h) in seconds
-#done
+    echo "[entrypoint] Sleeping for 15 minutes..."
+    sleep 14400  # 240 minutes (4h) in seconds
+done
