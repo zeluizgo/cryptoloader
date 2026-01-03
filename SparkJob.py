@@ -59,7 +59,8 @@ spark = SparkSession.builder \
                 "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED " 
                 "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED " 
                 "--add-opens=java.base/java.util=ALL-UNNAMED " 
-                "--add-opens=java.base/java.lang=ALL-UNNAMED ") \
+                "--add-opens=java.base/java.lang=ALL-UNNAMED "
+                "-Djava.net.preferIPv4Stack=true ") \
     .config("spark.executor.extraJavaOptions",
         "--add-opens=java.base/java.nio=ALL-UNNAMED " 
                 "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED " 
@@ -67,6 +68,7 @@ spark = SparkSession.builder \
                 "--add-opens=java.base/java.util=ALL-UNNAMED " 
                 "--add-opens=java.base/java.lang=ALL-UNNAMED ") \
     .getOrCreate()
+
 
 
 # \
