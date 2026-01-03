@@ -42,7 +42,7 @@ def read_market_lastpartition_from_hdfs (database:str, table:str, ind_curr:str, 
   # Step 1: Get the list of partitions for the specific index
   partitions = spark.sql("""
       SHOW PARTITIONS {}.{}
-      WHERE index = '{}'
+      LIKE index = '{}'
   """.format(database, table, ind_curr)).collect()
 
   if table == "binance_monthly_hist_w1" or table == "binance_monthly_hist_d1": # Step 2: Parse partitions to find the most recent year and month
