@@ -19,12 +19,6 @@ echo "[entrypoint] Starting periodic ETL execution (every 15 minutes)..."
 #    spark-worker-3 \
 #    >> /home/appuser/.ssh/known_hosts
 
-ssh-keyscan \
-    192.168.15.119 \
-    192.168.15.107 \
-    192.168.15.101 \
-    192.168.15.43 \
-    >> /home/appuser/.ssh/known_hosts
 
 chmod 644 /home/appuser/.ssh/known_hosts && \
     chown appuser:appuser /home/appuser/.ssh/known_hosts
