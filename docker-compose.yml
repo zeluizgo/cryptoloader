@@ -13,6 +13,9 @@ services:
     volumes:
       - etl_data:/glustervol1
       - /home/ubuntu/.ssh:/home/appuser/.ssh:ro
+    environment:
+      - HADOOP_CONF_DIR=/opt/spark//conf
+      - YARN_CONF_DIR=/opt/spark/conf
     networks:
       - crypto-network
       - spark-hadoop_cluster-network

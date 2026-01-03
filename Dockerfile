@@ -58,6 +58,11 @@ ENV PYSPARK_SUBMIT_ARGS="--py-files /app/dao.zip pyspark-shell"
 COPY LoadData.py .
 COPY entrypoint.sh .
 
+RUN mkdir -p /opt/spark /opt/spark/conf
+
+COPY spark/conf/*.xml /opt/spark/conf/
+COPY spark/conf/*.conf /opt/spark/conf/
+
 # Make the script executable
 RUN chmod +x entrypoint.sh
 
