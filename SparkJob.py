@@ -156,4 +156,6 @@ print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Symbol =" + idAsset)
 print(idAsset+ " - Carregando arquivo do ativo: "+ idAsset+ "...")
 carga(idAsset)
 
+spark.stop()
+
 
