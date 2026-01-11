@@ -32,7 +32,7 @@ print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"Exchange: {args.exchange
 print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Initializing Spark Session...")
 
 spark = SparkSession.builder \
-    .appName("Job Loader for" + args.symbol + " on " + args.exchange) \
+    .appName("Job Loader for " + args.symbol + " on " + args.exchange) \
     .master("yarn") \
     .config("spark.submit.deployMode", "client") \
     .config("spark.yarn.queue", "jupyter") \
@@ -59,8 +59,7 @@ spark = SparkSession.builder \
                 "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED " 
                 "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED " 
                 "--add-opens=java.base/java.util=ALL-UNNAMED " 
-                "--add-opens=java.base/java.lang=ALL-UNNAMED "
-                "-Djava.net.preferIPv4Stack=true ") \
+                "--add-opens=java.base/java.lang=ALL-UNNAMED ") \
     .config("spark.executor.extraJavaOptions",
         "--add-opens=java.base/java.nio=ALL-UNNAMED " 
                 "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED " 
@@ -148,7 +147,12 @@ def carga(ind_curr:str):
     load_crypto_to_hdfs(ind_curr,possibleTimeFrames[iCount],spark,dfAux0,False)
 
 
+
 idAsset = args.symbol
+
+
+print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Symbol =" + idAsset)
+
 print(idAsset+ " - Carregando arquivo do ativo: "+ idAsset+ "...")
 carga(idAsset)
 
