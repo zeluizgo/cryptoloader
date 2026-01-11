@@ -36,6 +36,8 @@ spark = SparkSession.builder \
     .master("yarn") \
     .config("spark.submit.deployMode", "client") \
     .config("spark.yarn.queue", "jupyter") \
+    .config("spark.driver.host", "192.168.15.107") \
+    .config("spark.driver.bindAddress", "0.0.0.0") \
     .config("spark.yarn.stagingDir", "hdfs:///tmp/spark-staging") \
     .config("spark.yarn.jars", "local:///usr/spark-4.0.1-bin-hadoop3/jars/*") \
     .config("spark.executor.instances", "4") \
