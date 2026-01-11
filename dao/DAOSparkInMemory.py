@@ -1,5 +1,6 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import lit, col
+from pyspark.sql.functions import lit, col, max
+import pyspark.sql.functions as F
 from pyspark.sql import  DataFrame
 
 #TO-DO ALL: comentar todos os métodos:
@@ -37,27 +38,48 @@ def de_para_crypto_database(timeframe) -> str:
 #    return dfHiveAux0
 
 
-def read_market_lastpartition_from_hdfs (database:str, table:str, ind_curr:str, spark:SparkSession) -> DataFrame:
+def get_latest_partition_date(spark, table, index_value):
+    parts = spark.sql(f"SHOW PARTITIONS {table}")
+    return (
+        parts
+        .filter(F.col("partition").startswith(f"index={index_value}/"))
+        .select(
+            F.regexp_extract("partition", r"cuote_date=([0-9\-]+)", 1)
+            .alias("cuote_date")
+        )
+        .agg(F.max("cuote_date").alias("latest"))
+        .collect()[0]["latest"]
+    )
 
-  # Step 1: Get the list of partitions for the specific index
-  partitions = spark.sql("""
-      SHOW PARTITIONS {}.{}
-      LIKE index = '{}'
-  """.format(database, table, ind_curr)).collect()
+
+def get_latest_partition_year_month(spark, table, index_value):
+    parts = spark.sql(f"SHOW PARTITIONS {table}")
+    return (
+         parts
+        .filter(F.col("partition").startswith(f"index={index_value}/"))
+        .select(
+            (
+                F.regexp_extract("partition", r"cuote_year=([0-9]{4})", 1).cast("int") * 100 +
+                F.regexp_extract("partition", r"cuote_month=([0-9]{2})", 1).cast("int")
+            ).alias("yyyymm")
+        )
+        .agg(F.max("yyyymm").alias("latest"))
+        .collect()[0]["latest"]
+    )
+
+
+
+def read_market_lastpartition_from_hdfs (database:str, table:str, ind_curr:str, spark:SparkSession) -> DataFrame:
 
   if table == "binance_monthly_hist_w1" or table == "binance_monthly_hist_d1": # Step 2: Parse partitions to find the most recent year and month
     # Partitions are in the format "index=BTCUSD/year=2025/month=03"
     #latest_partition = None
-    latest_year_month = None
-    if partitions:
-        # Extract year and month from partitions and find the latest
-        partition_values = [
-            (row["partition"].split("/")[1].split("=")[1], row["partition"].split("/")[2].split("=")[1])
-            for row in partitions
-        ]
-        # Sort by year and month (assuming month is zero-padded, e.g., '03')
-        latest_year_month = max(partition_values, key=lambda x: (x[0], x[1]))
-        latest_year, latest_month = latest_year_month
+    latest_year_month = get_latest_partition_year_month(
+    spark,f"{database}.{table}",
+    ind_curr
+    )
+    if latest_year_month:
+        latest_year, latest_month = divmod(latest_year_month, 100)  # Latest year and month as integers
 
         return spark.read.table(database + "."+ table).filter(
             (col("index") == lit(ind_curr)) & (col("cuote_year") == lit(latest_year)) & (col("cuote_month") == lit(latest_month))
@@ -66,19 +88,17 @@ def read_market_lastpartition_from_hdfs (database:str, table:str, ind_curr:str, 
   else:
     # Step 2: Parse partitions to find the most recent date
     # Partitions are in the format "index=BTCUSD/date=2025-08-08"
-    latest_date = None
-    if partitions:
-        partition_dates = [row["partition"].split("/")[1].split("=")[1] for row in partitions]
-        latest_date = max(partition_dates)  # Latest date in yyyy-MM-dd format
-        
+    latest_date = get_latest_partition_date(
+    spark,f"{database}.{table}",
+    ind_curr
+    )
+    if latest_date:
         return spark.read.table(database + "."+ table).filter(
             (col("index") == lit(ind_curr)) & (col("cuote_date") == lit(latest_date))
         )
 
 
-  return spark.read.table(database + "."+ table).filter(
-            (col("index") == lit(ind_curr))
-        )
+  return None
 
 
 def load_crypto_to_hdfs(ind_curr, timeframe, spark, dfAux1, cargaZero):
@@ -94,14 +114,18 @@ def load_markets_to_hdfs(ind_curr, table, spark, dfDadosOrigem, cargaZero):
 
     dfHiveAux = read_market_lastpartition_from_hdfs("crypto", table, ind_curr, spark)
 
-    close_row = dfHiveAux.agg(max("cuote_timestamp").alias("max_timestamp")).collect()[0]["max_timestamp"]
+    if dfHiveAux is not None and dfHiveAux.count() > 0:
 
-    #close_row = dfHiveAux0.groupBy().max("cuote_timestamp").collect()[0][0]
-    print("close_row: " + str(close_row))
+      close_row = dfHiveAux.agg(max("cuote_timestamp").alias("max_timestamp")).collect()[0]["max_timestamp"]
 
-    dfAux2 = dfDadosOrigem.filter(dfDadosOrigem["cuote_timestamp"] > close_row)
+      #close_row = dfHiveAux0.groupBy().max("cuote_timestamp").collect()[0][0]
+      print("close_row: " + str(close_row))
 
-    append_data_to_hdfs("crypto",table,dfAux2)
+      dfAux2 = dfDadosOrigem.filter(dfDadosOrigem["cuote_timestamp"] > close_row)
+
+      append_data_to_hdfs("crypto",table,dfAux2)
+    else:
+      append_data_to_hdfs("crypto",table,dfDadosOrigem)
 
     #dfAux3 = dfHiveAux0.drop("_id").union(dfAux2)
 

@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType,StructField, StringType, IntegerType, DoubleType, LongType
-from pyspark.sql.functions import to_timestamp, lit, from_unixtime, date_format, year, month, lpad
+from pyspark.sql.functions import to_timestamp, lit, from_unixtime, date_format, year, month, lpad, to_date
 from pyspark.sql import  DataFrame
 
 #TO-DO ALL: comentar todos os métodos:
@@ -40,8 +40,8 @@ def read_binance_csv(ind_curr:str, timeframe:str, spark:SparkSession) -> DataFra
                 .withColumn('index', lit(ind_curr)) \
                 .drop("cuote_opentime","cuote_closetime")
   #dfAux1.show()
-  dfAux2 = dfAux1.withColumn('cuote_date', date_format(dfAux1['cuote_timestamp'], 'yyyy-MM-dd')) \
+  dfAux2 = dfAux1.withColumn('cuote_date', to_date(date_format(dfAux1['cuote_timestamp'], 'yyyy-MM-dd'))) \
                 .withColumn('cuote_year', year(dfAux1['cuote_timestamp'])) \
-                .withColumn('cuote_month', lpad(month(dfAux1['cuote_timestamp']), 2, '0'))
+                .withColumn('cuote_month', month(dfAux1['cuote_timestamp']))
   #dfAux2.show()
   return dfAux2
