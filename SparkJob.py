@@ -96,6 +96,8 @@ for db_path in spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopC
     #if not db_name.endswith(".db"):
     #    continue
     db = db_name#[:-3]
+
+    print(f"{datetime.now():%Y.%m.%d %H:%M:%S} → CREATING DATABASE: → {db}")
     spark.sql(f"CREATE DATABASE IF NOT EXISTS {db}")
     print(f"{datetime.now():%Y.%m.%d %H:%M:%S} → OK DATABASE: → {db}")
 

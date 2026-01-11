@@ -37,5 +37,5 @@ while true; do
     fi
 
     echo "[entrypoint] Sleeping for 15 minutes..."
-    sleep 14400  # 240 minutes (4h) in seconds
+    sleep 600  # 240 minutes (4h) in seconds
 done
