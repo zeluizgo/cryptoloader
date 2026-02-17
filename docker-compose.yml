@@ -17,7 +17,7 @@ services:
       - HADOOP_CONF_DIR=/opt/spark//conf
       - YARN_CONF_DIR=/opt/spark/conf
     networks:
-      - crypto-network
+      - springboot-crypto_crypto-network
       - spark-hadoop_cluster-network
 
 
@@ -30,7 +30,7 @@ volumes:
       device: /media/glusterfs
 
 networks:
-  crypto-network:
+  springboot-crypto_crypto-network:
     external: true
   spark-hadoop_cluster-network:
     external: true
