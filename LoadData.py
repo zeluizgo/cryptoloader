@@ -264,12 +264,14 @@ def loop_download_all():
     print(len(assets))
 
     for asset in assets:
-        etl_download(asset["symbol"], asset["exchange"], datetime(2025, 1, 1), datetime.now())
-        sync_downloaded_files(asset["symbol"], asset["exchange"])
-        submit_spark_job(asset["symbol"], asset["exchange"])
+        exchange = asset["id"].split("_")[0]
+        symbol = asset["symbol"]            
+        etl_download(symbol, exchange, datetime(2025, 1, 1), datetime.now())
+        sync_downloaded_files(symbol, exchange)
+        submit_spark_job(symbol, exchange)
 
-#loop_download_all()
+loop_download_all()
 
-etl_download("BTCUSDT", "binance", datetime(2025, 1, 1), datetime.now())
-sync_downloaded_files("BTCUSDT", "binance")
-submit_spark_job("BTCUSDT", "binance")
+#etl_download("BTCUSDT", "binance", datetime(2025, 1, 1), datetime.now())
+#sync_downloaded_files("BTCUSDT", "binance")
+#submit_spark_job("BTCUSDT", "binance")

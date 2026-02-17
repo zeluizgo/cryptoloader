@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   etl:
-    image: cryptoloader:latest
+    image: ubuntu-pi-03.local:5000/cryptoloader:latest
     hostname: etl-firstattempt
     container_name: etl-firstattempt
     deploy:
