@@ -8,6 +8,9 @@ services:
     deploy:
       mode: replicated
       replicas: 1
+      placement:
+        constraints:
+          - node.labels.workerid != 3
       restart_policy:
         condition: on-failure
     volumes:
@@ -19,7 +22,6 @@ services:
     networks:
       - springboot-crypto_crypto-network
       - spark-hadoop_cluster-network
-
 
 volumes:
   etl_data:
