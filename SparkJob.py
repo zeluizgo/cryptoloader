@@ -55,6 +55,10 @@ spark = SparkSession.builder \
     .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
     .config("spark.hadoop.yarn.resourcemanager.address", "spark-master:8032") \
     .config("spark.hadoop.yarn.resourcemanager.hostname", "spark-master") \
+    .config("spark.eventLog.enabled", "true") \
+    .config("spark.eventLog.dir", "hdfs://spark-master:9000/spark-logs") \
+    .config("spark.history.fs.logDirectory", "hdfs://spark-master:9000/spark-logs") \
+    .config("spark.eventLog.compress", "true") \
     .config("spark.driver.extraJavaOptions", 
         "--add-opens=java.base/java.nio=ALL-UNNAMED " 
                 "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED " 
@@ -68,6 +72,10 @@ spark = SparkSession.builder \
                 "--add-opens=java.base/java.util=ALL-UNNAMED " 
                 "--add-opens=java.base/java.lang=ALL-UNNAMED ") \
     .getOrCreate()
+
+
+
+
 
 
 
