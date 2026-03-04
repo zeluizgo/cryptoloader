@@ -20,8 +20,8 @@ echo "[entrypoint] Starting periodic ETL execution (every 15 minutes)..."
 #    >> /home/appuser/.ssh/known_hosts
 
 
-chmod 644 /home/appuser/.ssh/known_hosts && \
-    chown appuser:appuser /home/appuser/.ssh/known_hosts
+#chmod 644 /home/appuser/.ssh/known_hosts && \
+#    chown appuser:appuser /home/appuser/.ssh/known_hosts
 
 # Infinite loop to run every 15 minutes
 while true; do
