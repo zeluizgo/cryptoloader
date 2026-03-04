@@ -53,7 +53,11 @@ def get_latest_partition_date(spark, table, index_value):
 
 
 def get_latest_partition_year_month(spark, table, index_value):
-    parts = spark.sql(f"SHOW PARTITIONS {table}")
+    parts = (
+        spark.sql(f"SHOW PARTITIONS {table}")
+        .filter(F.col("partition").contains("cuote_month="))
+    )
+
     return (
          parts
         .filter(F.col("partition").startswith(f"index={index_value}/"))
