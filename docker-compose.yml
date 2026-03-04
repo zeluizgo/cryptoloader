@@ -14,7 +14,7 @@ services:
       - etl_data:/glustervol1
       - /home/ubuntu/.ssh:/home/appuser/.ssh:ro
     environment:
-      - HADOOP_CONF_DIR=/opt/spark//conf
+      - HADOOP_CONF_DIR=/opt/spark/conf
       - YARN_CONF_DIR=/opt/spark/conf
     networks:
       - springboot-crypto_crypto-network
