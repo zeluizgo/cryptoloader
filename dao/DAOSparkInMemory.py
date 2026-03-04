@@ -62,14 +62,25 @@ def get_latest_partition_year_month(spark, table, index_value):
          parts
         .filter(F.col("partition").startswith(f"index={index_value}/"))
         .select(
-            (
-                F.regexp_extract("partition", r"cuote_year=([0-9]{4})", 1).cast("int") * 100 +
-                F.regexp_extract("partition", r"cuote_month=([0-9]{2})", 1).cast("int")
+                F.try_cast(
+                    F.regexp_extract("partition", r"cuote_year=([0-9]{4})", 1),
+                    "int"
+                ) * 100
+                +
+                F.try_cast(
+                    F.regexp_extract("partition", r"cuote_month=([0-9]{2})", 1),
+                    "int"
+                )
             ).alias("yyyymm")
-        )
         .agg(F.max("yyyymm").alias("latest"))
         .collect()[0]["latest"]
     )
+
+        #    (
+        #        F.regexp_extract("partition", r"cuote_year=([0-9]{4})", 1).cast("int") * 100 +
+        #        F.regexp_extract("partition", r"cuote_month=([0-9]{2})", 1).cast("int")
+        #    ).alias("yyyymm")
+
 
 
 
