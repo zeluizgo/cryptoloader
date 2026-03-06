@@ -24,20 +24,18 @@ echo "[entrypoint] Starting periodic ETL execution (every 15 minutes)..."
 #    chown appuser:appuser /home/appuser/.ssh/known_hosts
 
 # Infinite loop to run every 15 minutes
-while true; do
-    echo "[entrypoint] Running ETL job at $(date)..."
-    #echo "User is: $USER"
-    #echo "User is: $(whoami)"
-    python3 /app/LoadData.py
 
-    EXIT_CODE=$?
+echo "[entrypoint] Running ETL job at $(date)..."
+#echo "User is: $USER"
+#echo "User is: $(whoami)"
+python3 /app/LoadData.py
 
-    if [ $EXIT_CODE -ne 0 ]; then
-        echo "[entrypoint] WARNING: LoadData.py exited with code $EXIT_CODE"
-    else
-        echo "[entrypoint] ETL job completed successfully"
-    fi
+EXIT_CODE=$?
 
-    echo "[entrypoint] Sleeping for 15 minutes..."
-    sleep 600  # 240 minutes (4h) in seconds
-done
+if [ $EXIT_CODE -ne 0 ]; then
+    echo "[entrypoint] WARNING: LoadData.py exited with code $EXIT_CODE"
+else
+    echo "[entrypoint] ETL job completed successfully"
+fi
+
+echo "[entrypoint] Finishing ETL Job at $(date). "
