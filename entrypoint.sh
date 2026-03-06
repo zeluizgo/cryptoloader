@@ -26,8 +26,8 @@ echo "[entrypoint] Starting periodic ETL execution (every 15 minutes)..."
 # Infinite loop to run every 15 minutes
 while true; do
     echo "[entrypoint] Running ETL job at $(date)..."
-    echo "User is: $USER"
-    echo "User is: $(whoami)"
+    #echo "User is: $USER"
+    #echo "User is: $(whoami)"
     python3 /app/LoadData.py
 
     EXIT_CODE=$?

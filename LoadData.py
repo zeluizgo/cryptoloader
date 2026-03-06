@@ -5,6 +5,9 @@ import requests
 import zipfile
 import os
 from io import BytesIO
+import pika
+import json
+import time
 
 import subprocess
 import glob
@@ -14,6 +17,10 @@ possibleTimeFrames = ["15m","30m","1h","4h","1d","1w"]
 
 url_prefix_Daily = "https://data.binance.vision/data/spot/daily/klines/"
 url_prefix_Monthly = "https://data.binance.vision/data/spot/monthly/klines/"
+
+QUEUE_SPARK_JOB_NAME = "spark_job_assets"
+QUEUE_NEW_HIST_ASSETS_NAME = "new_hist_assets"
+QUEUE_HIST_ASSETS_NAME = "hist_assets"
 
 
 def get_last_timestamp(filename: str, bSemanal: bool) -> datetime:
@@ -246,7 +253,7 @@ def submit_spark_job(symbol: str, exchange: str):
         print("Spark job not implemented for exchange:", exchange)
         return
 
-
+    
     spark_submit_cmd = ["python3", "/app/SparkJob.py", "--symbol", symbol, "--exchange", exchange]
     #spark_submit_cmd = ["spark-submit", "--py-files", "/app/dao.zip", "/app/SparkJob.py"]
     print(f"Running spark-submit:", " ".join(spark_submit_cmd))
@@ -270,7 +277,142 @@ def loop_download_all():
         sync_downloaded_files(symbol, exchange)
         submit_spark_job(symbol, exchange)
 
-loop_download_all()
+def loop_download_all_decoupled():
+    url = "http://crypto-trader:8091/cryptoassets"
+
+    response = requests.get(url)
+    assets = response.json()
+    print(len(assets))
+
+    for asset in assets:
+        exchange = asset["id"].split("_")[0]
+        symbol = asset["symbol"]
+        add_to_download_queue(symbol, exchange)
+    print("✅ All ETL + sync queued in RabbitMQ to donload and sync after!")
+
+def add_to_spark_job_queue(symbol: str, exchange: str, priority: int):
+    """Publica spark job no RabbitMQ para o consumer processar depois"""
+    try:
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+        channel = connection.channel()
+        
+        channel.queue_declare(queue=QUEUE_SPARK_JOB_NAME, durable=True)
+        
+        message = {"symbol": symbol, "exchange": exchange}
+        
+        channel.basic_publish(
+            exchange='',
+            routing_key=QUEUE_SPARK_JOB_NAME,
+            body=json.dumps(message),
+            properties=pika.BasicProperties(delivery_mode=2,priority=priority)  # persistent
+        )
+        connection.close()
+        print(f"📨 Published Spark job → {symbol} ({exchange})")
+        
+    except Exception as e:
+        print(f"❌ Failed to publish {symbol}: {e}")
+
+def add_to_download_queue(symbol: str, exchange: str):
+    """Publica ETL Download no RabbitMQ para o consumer processar depois"""
+    try:
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+        channel = connection.channel()
+        
+        channel.queue_declare(queue=QUEUE_HIST_ASSETS_NAME, durable=True)
+        
+        message = {"symbol": symbol, "exchange": exchange}
+        
+        channel.basic_publish(
+            exchange='',
+            routing_key=QUEUE_NEW_HIST_ASSETS_NAME,
+            body=json.dumps(message),
+            properties=pika.BasicProperties(delivery_mode=2)  # persistent
+        )
+        connection.close()
+        print(f"📨 Published ETL Download job → {symbol} ({exchange})")
+        
+    except Exception as e:
+        print(f"❌ Failed to publish {symbol}: {e}")
+
+
+def callback_urgent(ch, method, properties, body):
+    try:
+        data = json.loads(body)
+        symbol = data["symbol"]
+        exchange = data["exchange"]
+
+        print(f"🔥 Received New (urgent) Symbol to do ETL Download → {symbol} ({exchange})")
+
+        etl_download(symbol, exchange, datetime(2025, 1, 1), datetime.now())
+        sync_downloaded_files(symbol, exchange)
+
+        add_to_spark_job_queue(symbol, exchange, 10)  # prioridade 10 para os novos assets, para serem processados antes dos demais que estão na fila com prioridade 0
+
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        print(f"✅ ETL do (urgent -new symbol) completed: {symbol}\n")
+
+    except Exception as e:
+        print(f"❌ Error processing {body}: {e}")
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)  # retry later
+
+
+def callback_normal(ch, method, properties, body):
+    try:
+        data = json.loads(body)
+        symbol = data["symbol"]
+        exchange = data["exchange"]
+
+        print(f"🔥 Received New (normal) Symbol to do ETL Download → {symbol} ({exchange})")
+
+        etl_download(symbol, exchange, datetime(2025, 1, 1), datetime.now())
+        sync_downloaded_files(symbol, exchange)
+
+        add_to_spark_job_queue(symbol, exchange)  # prioridade 10 para os novos assets, para serem processados antes dos demais que estão na fila com prioridade 0
+
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        print(f"✅ ETL do (normal -new symbol) completed: {symbol}\n")
+
+    except Exception as e:
+        print(f"❌ Error processing {body}: {e}")
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)  # retry later
+
+def start_consumer():
+    while True:
+        try:
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+            channel_urgent = connection.channel()
+            channel_normal = connection.channel()
+            channel_urgent.queue_declare(queue=QUEUE_NEW_HIST_ASSETS_NAME, durable=True)
+            channel_normal.queue_declare(queue=QUEUE_HIST_ASSETS_NAME, durable=True)
+            channel_urgent.basic_qos(prefetch_count=1)   # process one at a time
+            channel_normal.basic_qos(prefetch_count=1)   # process one at a time
+
+            channel_urgent.basic_consume(queue=QUEUE_NEW_HIST_ASSETS_NAME, on_message_callback=callback_urgent)
+            channel_normal.basic_consume(queue=QUEUE_HIST_ASSETS_NAME, on_message_callback=callback_normal)
+            print("🚀 Spark Consumer started and waiting for jobs...")
+            channel_urgent.start_consuming()
+            channel_normal.start_consuming()
+
+            if channel_normal.get_waiting_message_count() == 0 :
+                print("No messages in queue normal - Loading all assets in queue...")
+                loop_download_all_decoupled()
+            time.sleep(5)
+
+        except Exception as e:
+            print(f"Connection lost, retrying in 5s... ({e})")
+            time.sleep(5)
+
+#if __name__ == "__main__":
+
+start_consumer()
+submit_spark_job(None, "binance")
+
+
+
+
+
+
+#loop_download_all()
 
 #etl_download("BTCUSDT", "binance", datetime(2025, 1, 1), datetime.now())
 #sync_downloaded_files("BTCUSDT", "binance")

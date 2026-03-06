@@ -5,19 +5,23 @@ from datetime import datetime
 
 import argparse
 
+import pika
+import json
+import time
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Spark job with parameters")
 
     parser.add_argument(
         "--symbol",
-        required=True,
+        required=False,
         help="Cryptocurrency symbol to process (e.g., BTCUSDT)",
     )
 
 
     parser.add_argument(
         "--exchange",
-        required=True,
+        required=False,
         help="Exchange to process (e.g., binance)",
     )
 
@@ -31,8 +35,10 @@ print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"Exchange: {args.exchange
 
 print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Initializing Spark Session...")
 
+
+#    .appName("Job Loader for " + args.symbol + " on " + args.exchange) \
 spark = SparkSession.builder \
-    .appName("Job Loader for " + args.symbol + " on " + args.exchange) \
+    .appName("Job Loader for All assets in RabbitMQ") \
     .master("yarn") \
     .config("spark.submit.deployMode", "client") \
     .config("spark.yarn.queue", "jupyter") \
@@ -72,11 +78,6 @@ spark = SparkSession.builder \
                 "--add-opens=java.base/java.util=ALL-UNNAMED " 
                 "--add-opens=java.base/java.lang=ALL-UNNAMED ") \
     .getOrCreate()
-
-
-
-
-
 
 
 # \
@@ -156,15 +157,51 @@ def carga(ind_curr:str):
     load_crypto_to_hdfs(ind_curr,possibleTimeFrames[iCount],spark,dfAux0,False)
 
 
+QUEUE_SPARK_JOB_NAME = "spark_job_assets"
 
-idAsset = args.symbol
+def callback(ch, method, properties, body):
+    try:
+        data = json.loads(body)
+        symbol = data["symbol"]
+        exchange = data["exchange"]
+
+        print(f"🔥 Received Spark job → {symbol} ({exchange})")
 
 
-print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Symbol =" + idAsset)
+        idAsset = symbol
 
-print(idAsset+ " - Carregando arquivo do ativo: "+ idAsset+ "...")
-carga(idAsset)
 
-spark.stop()
+        print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Symbol =" + idAsset)
+
+        print(idAsset+ " - Carregando arquivo do ativo: "+ idAsset+ "...")
+        carga(idAsset)
+
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        print(f"✅ Spark job completed: {symbol}\n")
+
+    except Exception as e:
+        print(f"❌ Error processing {body}: {e}")
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)  # retry later
+
+def start_consumer():
+    while True:
+        try:
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+            channel = connection.channel()
+            channel.queue_declare(queue=QUEUE_SPARK_JOB_NAME, durable=True)
+            channel.basic_qos(prefetch_count=1)   # process one at a time
+
+            channel.basic_consume(queue=QUEUE_SPARK_JOB_NAME, on_message_callback=callback)
+            print("🚀 Spark Consumer started and waiting for jobs...")
+            channel.start_consuming()
+
+        except Exception as e:
+            print(f"Connection lost, retrying in 5s... ({e})")
+            time.sleep(5)
+
+#if __name__ == "__main__":
+start_consumer()
+
+#spark.stop()
 
 

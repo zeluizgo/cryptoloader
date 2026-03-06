@@ -22,6 +22,7 @@ services:
     networks:
       - springboot-crypto_crypto-network
       - spark-hadoop_cluster-network
+      - springboot-historic_queue-net
 
 volumes:
   etl_data:
@@ -35,4 +36,6 @@ networks:
   springboot-crypto_crypto-network:
     external: true
   spark-hadoop_cluster-network:
+    external: true
+  springboot-historic_queue-net:
     external: true
