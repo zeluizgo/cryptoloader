@@ -371,6 +371,11 @@ def callback_normal(ch, method, properties, body):
 
         ch.basic_ack(delivery_tag=method.delivery_tag)
         print(f"✅ ETL do (normal -new symbol) completed: {symbol}\n")
+        print(f"# Qtde messages in queue normal: {ch.get_waiting_message_count()}")
+
+        if ch.get_waiting_message_count() == 0:
+            print("⏳ No more messages in queue, triggering download for all assets in queue just in case...")
+            loop_download_all_decoupled()
 
     except Exception as e:
         print(f"❌ Error processing {body}: {e}")
@@ -380,22 +385,22 @@ def start_consumer():
     while True:
         try:
             connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
-            channel_urgent = connection.channel()
+            #channel_urgent = connection.channel()
             channel_normal = connection.channel()
-            channel_urgent.queue_declare(queue=QUEUE_NEW_HIST_ASSETS_NAME, durable=True)
+            #channel_urgent.queue_declare(queue=QUEUE_NEW_HIST_ASSETS_NAME, durable=True)
             channel_normal.queue_declare(queue=QUEUE_HIST_ASSETS_NAME, durable=True)
-            channel_urgent.basic_qos(prefetch_count=1)   # process one at a time
+            #channel_urgent.basic_qos(prefetch_count=1)   # process one at a time
             channel_normal.basic_qos(prefetch_count=1)   # process one at a time
 
-            channel_urgent.basic_consume(queue=QUEUE_NEW_HIST_ASSETS_NAME, on_message_callback=callback_urgent)
+            #channel_urgent.basic_consume(queue=QUEUE_NEW_HIST_ASSETS_NAME, on_message_callback=callback_urgent)
             channel_normal.basic_consume(queue=QUEUE_HIST_ASSETS_NAME, on_message_callback=callback_normal)
-            print("🚀 Spark Consumer started and waiting for jobs...")
-            channel_urgent.start_consuming()
+            print("✅ Spark Consumer connected to RabbitMQ and consuming queues!")  
+            #print(f"⏳ Waiting for messages in queue {QUEUE_NEW_HIST_ASSETS_NAME} (urgent - new symbols)...")   
+            print(f"⏳ Waiting for messages in queue {QUEUE_HIST_ASSETS_NAME} (normal - existing symbols)...")          
+            print("⏳ If no messages arrive in 5s, the consumer will automatically trigger a download for all assets in queue...")  
+            print(f"# Qtde messages in queue normal: {channel_normal.get_waiting_message_count()}")
+            #channel_urgent.start_consuming()
             channel_normal.start_consuming()
-
-            if channel_normal.get_waiting_message_count() == 0 :
-                print("No messages in queue normal - Loading all assets in queue...")
-                loop_download_all_decoupled()
             time.sleep(5)
 
         except Exception as e:
@@ -404,6 +409,9 @@ def start_consumer():
 
 #if __name__ == "__main__":
 
+
+print("Loading all assets in queue...")
+loop_download_all_decoupled()
 start_consumer()
 submit_spark_job(None, "binance")
 
