@@ -147,7 +147,7 @@ def carga(symbol: str):
     for tf in possibleTimeFrames:
         logger.info(f"Processando {symbol} - timeframe {tf}")
         df = read_binance_csv(symbol, tf, spark)
-        load_crypto_to_hdfs(symbol, tf, spark, df, incremental=False)  # ou True, conforme sua lógica
+        load_crypto_to_hdfs(symbol, tf, spark, df, False)  # ou True, conforme sua lógica
 
 def callback(ch, method, properties, body):
     try:
