@@ -8,6 +8,12 @@ import argparse
 import pika
 import json
 import time
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+QUEUE_SPARK_JOB_NAME = "spark_job_assets"
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Spark job with parameters")
@@ -27,14 +33,12 @@ def parse_args():
 
     return parser.parse_args()
 
-print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Initializing Input Variables...")
-
+logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Initializing Input Variables...")
+logger.info(f"Name:{__name__}")
 args = parse_args()
-print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"Symbol: {args.symbol}")
-print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"Exchange: {args.exchange}") 
-
-print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Initializing Spark Session...")
-
+logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"Symbol: {args.symbol}")
+logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"Exchange: {args.exchange}") 
+logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Initializing Spark Session...")
 
 #    .appName("Job Loader for " + args.symbol + " on " + args.exchange) \
 spark = SparkSession.builder \
@@ -88,14 +92,14 @@ spark = SparkSession.builder \
 #    .config("spark.sql.files.ignoreMissingFiles", "true") \
 #    .config("spark.hadoop.parquet.enable.summary-metadata", "false") \
 
-print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + " Spark Session initialized.")
+logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + " Spark Session initialized.")
 
-print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"Spark versão: {spark.version}")
-print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"Catálogo: {spark.conf.get('spark.sql.catalogImplementation')}")  # → in-memory
-print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"fs.defaultFS: {spark.conf.get('spark.hadoop.fs.defaultFS')}")
+logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"Spark versão: {spark.version}")
+logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"Catálogo: {spark.conf.get('spark.sql.catalogImplementation')}")  # → in-memory
+logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"fs.defaultFS: {spark.conf.get('spark.hadoop.fs.defaultFS')}")
 
 
-print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Load databases and tables in-memory catalog...")
+logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Load databases and tables in-memory catalog...")
 
 base =  "hdfs://spark-master:9000/datasets/"
 for db_path in spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration()) \
@@ -106,9 +110,9 @@ for db_path in spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopC
     #    continue
     db = db_name#[:-3]
 
-    print(f"{datetime.now():%Y.%m.%d %H:%M:%S} → CREATING DATABASE: → {db}")
+    logger.info(f"{datetime.now():%Y.%m.%d %H:%M:%S} → CREATING DATABASE: → {db}")
     spark.sql(f"CREATE DATABASE IF NOT EXISTS {db}")
-    print(f"{datetime.now():%Y.%m.%d %H:%M:%S} → OK DATABASE: → {db}")
+    logger.info(f"{datetime.now():%Y.%m.%d %H:%M:%S} → OK DATABASE: → {db}")
 
     for tbl_path in spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration()) \
                      .listStatus(db_path.getPath()):
@@ -131,33 +135,19 @@ for db_path in spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopC
             
             #spark.sql(f"REFRESH TABLE {db}.{tbl}")
             spark.sql(f"ALTER TABLE {db}.{tbl} RECOVER PARTITIONS")
-            print(f"{datetime.now():%Y.%m.%d %H:%M:%S} → OK TABLE: → {db}.{tbl}")
+            logger.info(f"{datetime.now():%Y.%m.%d %H:%M:%S} → OK TABLE: → {db}.{tbl}")
             
         except Exception as e:
-            print(f"{datetime.now():%Y.%m.%d %H:%M:%S} → PULOU → {db}.{tbl} → {str(e)[:80]}")
+            logger.warning(f"{datetime.now():%Y.%m.%d %H:%M:%S} → PULOU → {db}.{tbl} → {str(e)[:80]}")
 
-
-print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Databases and Tables loaded in-memory catalog.")
-
+logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Databases and Tables loaded in-memory catalog.")
 
 possibleTimeFrames = ["15m","30m","1h","4h","1d","1w"]
-
-#possibleTimeFrames = ["30m","1h","4h","1d"]
-
-def carga_zero(ind_curr:str):
-  qtde = len(possibleTimeFrames)
-  for iCount in range(qtde):
-    dfAux0 = read_binance_csv(ind_curr,possibleTimeFrames[iCount],spark)
-    load_crypto_to_hdfs(ind_curr,possibleTimeFrames[iCount],spark,dfAux0,True)
-
-def carga(ind_curr:str):
-  qtde = len(possibleTimeFrames)
-  for iCount in range(qtde):
-    dfAux0 = read_binance_csv(ind_curr,possibleTimeFrames[iCount],spark)
-    load_crypto_to_hdfs(ind_curr,possibleTimeFrames[iCount],spark,dfAux0,False)
-
-
-QUEUE_SPARK_JOB_NAME = "spark_job_assets"
+def carga(symbol: str):
+    for tf in possibleTimeFrames:
+        logger.info(f"Processando {symbol} - timeframe {tf}")
+        df = read_binance_csv(symbol, tf, spark)
+        load_crypto_to_hdfs(symbol, tf, spark, df, incremental=False)  # ou True, conforme sua lógica
 
 def callback(ch, method, properties, body):
     try:
@@ -165,23 +155,16 @@ def callback(ch, method, properties, body):
         symbol = data["symbol"]
         exchange = data["exchange"]
 
-        print(f"🔥 Received Spark job → {symbol} ({exchange})")
+        logger.info(f"🔥 Recebido job → {symbol} ({exchange})")
 
-
-        idAsset = symbol
-
-
-        print(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Symbol =" + idAsset)
-
-        print(idAsset+ " - Carregando arquivo do ativo: "+ idAsset+ "...")
-        carga(idAsset)
+        carga(symbol)
 
         ch.basic_ack(delivery_tag=method.delivery_tag)
-        print(f"✅ Spark job completed: {symbol}\n")
+        logger.info(f"✅ Job concluído: {symbol}")
 
     except Exception as e:
-        print(f"❌ Error processing {body}: {e}")
-        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)  # retry later
+        logger.error(f"❌ Erro ao processar {body}: {e}", exc_info=True)
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)  # ou True se quiser retry
 
 def start_consumer():
     while True:
@@ -189,19 +172,25 @@ def start_consumer():
             connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
             channel = connection.channel()
             channel.queue_declare(queue=QUEUE_SPARK_JOB_NAME, durable=True)
-            channel.basic_qos(prefetch_count=1)   # process one at a time
+            channel.basic_qos(prefetch_count=1)
 
             channel.basic_consume(queue=QUEUE_SPARK_JOB_NAME, on_message_callback=callback)
-            print("🚀 Spark Consumer started and waiting for jobs...")
-            channel.start_consuming()
+            logger.info("🚀 Consumidor Spark iniciado – SparkSession compartilhada ativa")
+            logger.info("Aguardando mensagens...")
+
+            channel.start_consuming()  # bloqueia aqui para sempre (até shutdown)
 
         except Exception as e:
-            print(f"Connection lost, retrying in 5s... ({e})")
+            logger.error(f"Conexão perdida, reconectando em 5s... ({e})")
             time.sleep(5)
+        finally:
+            if 'connection' in locals() and connection.is_open:
+                connection.close()
 
-#if __name__ == "__main__":
-start_consumer()
-
-#spark.stop()
-
-
+if __name__ == "__main__":
+    try:
+        start_consumer()
+    except KeyboardInterrupt:
+        logger.info("Shutdown solicitado – parando SparkSession")
+        spark.stop()
+        logger.info("SparkSession parada com sucesso")
