@@ -24,7 +24,6 @@ url_prefix_Daily = "https://data.binance.vision/data/spot/daily/klines/"
 url_prefix_Monthly = "https://data.binance.vision/data/spot/monthly/klines/"
 
 QUEUE_SPARK_JOB_NAME = "spark_job_assets"
-QUEUE_NEW_HIST_ASSETS_NAME = "new_hist_assets"
 QUEUE_HIST_ASSETS_NAME = "hist_assets"
 
 
@@ -244,11 +243,11 @@ def sync_downloaded_files(symbol: str, exchange: str):
     if src_files:
         for node in nodes:
             rsync_cmd = ["rsync", "-avz", "-e", "ssh -i /home/appuser/.ssh/id_etl_rsync"] + src_files + [f"appuser@{node}:/glustervol1/work/"]
-            logger.info(f"Running for node({node}):", " ".join(rsync_cmd))
+            #logger.info(f"Running for node({node}):", " ".join(rsync_cmd))
             rs = subprocess.run(rsync_cmd) #, capture_output=True, text=True)
-            logger.info(f"rsync returncode for node({node})=", rs.returncode)
+            logger.info(f"rsync returncode for node({node})={rs.returncode}")
             if rs.returncode != 0:
-                logger.error(f"rsync stderr for node({node}):", rs.stderr)
+                logger.error(f"rsync stderr for node({node}): {rs.stderr}")
     else:
         logger.warning(f"Nenhum arquivo encontrado para o padrão: {src_pattern}")
 
@@ -261,11 +260,11 @@ def submit_spark_job(symbol: str, exchange: str):
     
     spark_submit_cmd = ["python3", "/app/SparkJob.py", "--symbol", symbol, "--exchange", exchange]
     #spark_submit_cmd = ["spark-submit", "--py-files", "/app/dao.zip", "/app/SparkJob.py"]
-    logger.info(f"Running spark-submit:", " ".join(spark_submit_cmd))
+    #logger.info(f"Running spark-submit: " .join(spark_submit_cmd))
     rs = subprocess.run(spark_submit_cmd) #, capture_output=True, text=True)
-    logger.info(f"spark-submit returncode:", rs.returncode)
+    logger.info(f"spark-submit returncode: {rs.returncode}")
     if rs.returncode != 0:
-        logger.error(f"spark-submit stderr:", rs.stderr)
+        logger.error(f"spark-submit stderr: {rs.stderr}")
 
 
 def loop_download_all():
@@ -325,7 +324,7 @@ def add_to_download_queue(symbol: str, exchange: str):
         
         channel.queue_declare(queue=QUEUE_HIST_ASSETS_NAME, durable=True)
         
-        message = {"symbol": symbol, "exchange": exchange}
+        message = {"symbol": symbol, "exchange": exchange, "priority": 0}
         
         channel.basic_publish(
             exchange='',
@@ -340,39 +339,19 @@ def add_to_download_queue(symbol: str, exchange: str):
         logger.error(f"❌ Failed to publish {symbol}: {e}")
 
 
-def callback_urgent(ch, method, properties, body):
-    try:
-        data = json.loads(body)
-        symbol = data["symbol"]
-        exchange = data["exchange"]
-
-        logger.info(f"🔥 Received New (urgent) Symbol to do ETL Download → {symbol} ({exchange})")
-
-        etl_download(symbol, exchange, datetime(2025, 1, 1), datetime.now())
-        sync_downloaded_files(symbol, exchange)
-
-        add_to_spark_job_queue(symbol, exchange, 10)  # prioridade 10 para os novos assets, para serem processados antes dos demais que estão na fila com prioridade 0
-
-        ch.basic_ack(delivery_tag=method.delivery_tag)
-        logger.info(f"✅ ETL do (urgent -new symbol) completed: {symbol}\n")
-
-    except Exception as e:
-        logger.error(f"❌ Error processing {body}: {e}")
-        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)  # retry later
-
-
 def callback_normal(ch, method, properties, body):
     try:
         data = json.loads(body)
         symbol = data["symbol"]
         exchange = data["exchange"]
+        priority = data["priority"]
 
         logger.info(f"🔥 Received New (normal) Symbol to do ETL Download → {symbol} ({exchange})")
 
         etl_download(symbol, exchange, datetime(2025, 1, 1), datetime.now())
         sync_downloaded_files(symbol, exchange)
 
-        add_to_spark_job_queue(symbol, exchange,0)  # prioridade 10 para os novos assets, para serem processados antes dos demais que estão na fila com prioridade 0
+        add_to_spark_job_queue(symbol, exchange,priority)  # prioridade 10 para os novos assets, para serem processados antes dos demais que estão na fila com prioridade 0
 
         ch.basic_ack(delivery_tag=method.delivery_tag)
         logger.info(f"✅ ETL do (normal -new symbol) completed: {symbol}\n")
@@ -390,21 +369,15 @@ def start_consumer():
     while True:
         try:
             connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
-            #channel_urgent = connection.channel()
             channel_normal = connection.channel()
-            #channel_urgent.queue_declare(queue=QUEUE_NEW_HIST_ASSETS_NAME, durable=True)
             channel_normal.queue_declare(queue=QUEUE_HIST_ASSETS_NAME, durable=True)
-            #channel_urgent.basic_qos(prefetch_count=1)   # process one at a time
             channel_normal.basic_qos(prefetch_count=1)   # process one at a time
 
-            #channel_urgent.basic_consume(queue=QUEUE_NEW_HIST_ASSETS_NAME, on_message_callback=callback_urgent)
             channel_normal.basic_consume(queue=QUEUE_HIST_ASSETS_NAME, on_message_callback=callback_normal)
-            logger.info("✅ Spark Consumer connected to RabbitMQ and consuming queues!")  
-            #logger.info(f"⏳ Waiting for messages in queue {QUEUE_NEW_HIST_ASSETS_NAME} (urgent - new symbols)...")   
+            logger.info("✅ Spark Consumer connected to RabbitMQ and consuming queues!")   
             logger.info(f"⏳ Waiting for messages in queue {QUEUE_HIST_ASSETS_NAME} (normal - existing symbols)...")          
             logger.info("⏳ If no messages arrive in 5s, the consumer will automatically trigger a download for all assets in queue...")  
             logger.info(f"# Qtde messages in queue normal: {channel_normal.get_waiting_message_count()}")
-            #channel_urgent.start_consuming()
             channel_normal.start_consuming()
             time.sleep(5)
 
@@ -412,14 +385,12 @@ def start_consumer():
             logger.error(f"Connection lost, retrying in 5s... ({e})")
             time.sleep(5)
 
-#if __name__ == "__main__":
-
-
-logger.info("Loading all assets in queue...")
-logger.info(f"Name:{__name__}")
-loop_download_all_decoupled()
-start_consumer()
-submit_spark_job("0", "binance")
+if __name__ == "__main__":
+    logger.info("Loading all assets in queue...")
+    logger.info(f"Name:{__name__}")
+    loop_download_all_decoupled()
+    start_consumer()
+#submit_spark_job("0", "binance")
 
 
 

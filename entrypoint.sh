@@ -25,17 +25,37 @@ echo "[entrypoint] Starting periodic ETL execution (every 15 minutes)..."
 
 # Infinite loop to run every 15 minutes
 
-echo "[entrypoint] Running ETL job at $(date)..."
-#echo "User is: $USER"
-#echo "User is: $(whoami)"
-python3 /app/LoadData.py
 
-EXIT_CODE=$?
+if [[ "$HOSTNAME" == "etl-firstattempt" ]]; then
+    echo "[entrypoint] Running ETL job at $(date)...  on node ($HOSTNAME)"
+    #echo "User is: $USER"
+    #echo "User is: $(whoami)"
+    python3 /app/LoadData.py
 
-if [ $EXIT_CODE -ne 0 ]; then
-    echo "[entrypoint] WARNING: LoadData.py exited with code $EXIT_CODE"
-else
-    echo "[entrypoint] ETL job completed successfully"
+    EXIT_CODE=$?
+
+    if [ $EXIT_CODE -ne 0 ]; then
+        echo "[entrypoint] WARNING: LoadData.py exited with code $EXIT_CODE"
+    else
+        echo "[entrypoint] ETL job completed successfully"
+    fi
+
+    echo "[entrypoint] Finishing ETL Job at $(date). "
 fi
 
-echo "[entrypoint] Finishing ETL Job at $(date). "
+
+
+if [[ "$HOSTNAME" == "spark-firstattempt" ]]; then
+    echo "[entrypoint] Starting Spark Job node ($HOSTNAME)"
+    python3 "/app/SparkJob.py" "--symbol" "0" "--exchange" "binance"
+
+    EXIT_CODE=$?
+
+    if [ $EXIT_CODE -ne 0 ]; then
+        echo "[entrypoint] WARNING: SparkJob.py exited with code $EXIT_CODE"
+    else
+        echo "[entrypoint] Spark job completed successfully"
+    fi
+    echo "[entrypoint] Finishing Spark Job at $(date). "
+fi
+

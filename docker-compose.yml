@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  etl:
+  etl-loaddata:
     image: ubuntu-pi-03.local:5000/cryptoloader:latest
     hostname: etl-firstattempt
     container_name: etl-firstattempt
@@ -16,11 +16,28 @@ services:
     volumes:
       - etl_data:/glustervol1
       - /home/ubuntu/.ssh:/home/appuser/.ssh:ro
+    networks:
+      - springboot-crypto_crypto-network
+      - spark-hadoop_cluster-network
+      - springboot-historic_queue-net
+  spark-job:
+    image: ubuntu-pi-03.local:5000/cryptoloader:latest
+    hostname: spark-firstattempt
+    container_name: spark-firstattempt
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.workerid != 3
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - etl_data:/glustervol1
     environment:
       - HADOOP_CONF_DIR=/opt/spark/conf
       - YARN_CONF_DIR=/opt/spark/conf
     networks:
-      - springboot-crypto_crypto-network
       - spark-hadoop_cluster-network
       - springboot-historic_queue-net
 
