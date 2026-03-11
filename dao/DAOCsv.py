@@ -31,12 +31,12 @@ def read_binance_csv(ind_curr:str, timeframe:str, spark:SparkSession) -> DataFra
     .csv(file_path)
   #dfAux0.show()
   
-  seconds_to_millis = 1000000
-  if timeframe == "1w":
-    seconds_to_millis = 1000
+  miliseconds_to_millis = 1000000
+  seconds_to_millis = 1000
 
   #dfAux1 = dfAux0.withColumn('cuote_timestamp',  timestamp_millis(dfAux0['cuote_opentime']/1000)) \
-  dfAux1 = dfAux0.withColumn('cuote_timestamp',  to_timestamp(from_unixtime(dfAux0['cuote_opentime']/seconds_to_millis),'yyyy-MM-dd HH:mm:ss')) \
+  dfAux1 = dfAux0.withColumn('cuote_timestamp',  when(dfAux0['cuote_opentime'] > lit(9999999999999), to_timestamp(from_unixtime(dfAux0['cuote_opentime']/miliseconds_to_millis),'yyyy-MM-dd HH:mm:ss')) \
+                                                  .otherwise(to_timestamp(from_unixtime(dfAux0['cuote_opentime']/seconds_to_millis),'yyyy-MM-dd HH:mm:ss'))) \
                 .withColumn('index', lit(ind_curr)) \
                 .drop("cuote_opentime","cuote_closetime")
   #dfAux1.show()

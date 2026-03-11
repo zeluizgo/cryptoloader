@@ -53,34 +53,40 @@ def get_latest_partition_date(spark, table, index_value):
 
 
 def get_latest_partition_year_month(spark, table, index_value):
-    parts = (
-        spark.sql(f"SHOW PARTITIONS {table}")
-        .filter(F.col("partition").contains("cuote_month="))
-    )
+  parts = (
+      spark.sql(f"SHOW PARTITIONS {table}")
+      .filter(F.col("partition").startswith(f"index={index_value}/"))
+      .filter(F.col("partition").contains("cuote_month="))
+  )
+  # Extract strings
+  year_str = F.regexp_extract("partition", r"cuote_year=([0-9]{4})", 1)
+  month_str = F.regexp_extract("partition", r"cuote_month=([0-9]{2})", 1)
 
-    return (
-         parts
-        .filter(F.col("partition").startswith(f"index={index_value}/"))
-        .select(
-                F.try_cast(
-                    F.regexp_extract("partition", r"cuote_year=([0-9]{4})", 1),
-                    "int"
-                ) * 100
-                +
-                F.try_cast(
-                    F.regexp_extract("partition", r"cuote_month=([0-9]{2})", 1),
-                    "int"
-                )
-            ).alias("yyyymm")
-        .agg(F.max("yyyymm").alias("latest"))
-        .collect()[0]["latest"]
-    )
+  # Only cast if the extracted string looks valid
+  yyyymm = (
+      F.when(
+          (F.length(year_str) == 4) & year_str.rlike(r"^[0-9]{4}$"),
+          year_str.cast("int")
+      ).otherwise(None) * 100
+      +
+      F.when(
+          (F.length(month_str) == 2) & month_str.rlike(r"^[0-9]{2}$"),
+          month_str.cast("int")
+      ).otherwise(None)
+  ).alias("yyyymm")
 
-        #    (
-        #        F.regexp_extract("partition", r"cuote_year=([0-9]{4})", 1).cast("int") * 100 +
-        #        F.regexp_extract("partition", r"cuote_month=([0-9]{2})", 1).cast("int")
-        #    ).alias("yyyymm")
+  result = (
+          parts
+          .select(yyyymm)
+          .filter(F.col("yyyymm").isNotNull())          # drop rows where parsing failed
+          .agg(F.max("yyyymm").alias("latest"))
+          .collect()
+      )
 
+  if result and result[0]["latest"] is not None:
+      return result[0]["latest"]
+  else:
+      return None
 
 
 
