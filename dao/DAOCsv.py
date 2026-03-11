@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType,StructField, StringType, IntegerType, DoubleType, LongType
-from pyspark.sql.functions import to_timestamp, lit, from_unixtime, date_format, year, month, lpad, to_date
+from pyspark.sql.functions import to_timestamp, lit, from_unixtime, date_format, year, month, lpad, to_date, when
 from pyspark.sql import  DataFrame
 
 #TO-DO ALL: comentar todos os métodos:
