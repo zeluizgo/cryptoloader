@@ -15,6 +15,12 @@ import os
 
 import logging
 
+
+            
+import threading
+import time
+from collections import deque
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -25,6 +31,11 @@ url_prefix_Monthly = "https://data.binance.vision/data/spot/monthly/klines/"
 
 QUEUE_SPARK_JOB_NAME = "spark_job_assets"
 QUEUE_HIST_ASSETS_NAME = "hist_assets"
+
+# Global or class-level
+last_known_counts = {"hist_assets": -1, "spark_job_assets": -1}
+check_lock = threading.Lock()
+should_trigger_full_reload = threading.Event()
 
 
 def get_last_timestamp(filename: str, bSemanal: bool) -> datetime:
@@ -294,6 +305,16 @@ def loop_download_all_decoupled():
         add_to_download_queue(symbol, exchange)
     logger.info("✅ All ETL + sync queued in RabbitMQ to donload and sync after!")
 
+def reload_queue_when_all_empty():
+    connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+    channel_spark = connection.channel()
+    channel_spark.queue_declare(queue=QUEUE_SPARK_JOB_NAME, durable=True)
+
+    if channel_spark.message_count() == 0:
+        logger.info("⏳ No more messages in Spark job queue, triggering download for all assets in queue just in case...")
+        loop_download_all_decoupled()
+
+
 def add_to_spark_job_queue(symbol: str, exchange: str, priority: int):
     """Publica spark job no RabbitMQ para o consumer processar depois"""
     try:
@@ -315,6 +336,7 @@ def add_to_spark_job_queue(symbol: str, exchange: str, priority: int):
         
     except Exception as e:
         logger.error(f"❌ Failed to publish {symbol}: {e}")
+
 
 def add_to_download_queue(symbol: str, exchange: str):
     """Publica ETL Download no RabbitMQ para o consumer processar depois"""
@@ -355,7 +377,12 @@ def callback_normal(ch, method, properties, body):
 
         ch.basic_ack(delivery_tag=method.delivery_tag)
         logger.info(f"✅ ETL do (normal -new symbol) completed: {symbol}\n")
-        logger.info(f"# Qtde messages in queue normal: {ch.get_waiting_message_count()}")
+        #logger.info(f"# Qtde messages in queue normal: {ch.message_count()}")
+        # Example: react only when we know queues are empty
+#        if should_trigger_full_reload.is_set():
+#            logger.info("Detected both queues drained → running full reload / final sync")
+#            loop_download_all_decoupled()   # or whatever final action
+#            should_trigger_full_reload.clear()  # prevent repeating
 
 #        if ch.() == 0:
 #            logger.info("⏳ No more messages in queue, triggering download for all assets in queue just in case...")
@@ -377,7 +404,7 @@ def start_consumer():
             logger.info("✅ Spark Consumer connected to RabbitMQ and consuming queues!")   
             logger.info(f"⏳ Waiting for messages in queue {QUEUE_HIST_ASSETS_NAME} (normal - existing symbols)...")          
             logger.info("⏳ If no messages arrive in 5s, the consumer will automatically trigger a download for all assets in queue...")  
-            logger.info(f"# Qtde messages in queue normal: {channel_normal.get_waiting_message_count()}")
+            #logger.info(f"# Qtde messages in queue normal: {result.method.message_count}")
             channel_normal.start_consuming()
             time.sleep(5)
 
@@ -385,14 +412,58 @@ def start_consumer():
             logger.error(f"Connection lost, retrying in 5s... ({e})")
             time.sleep(5)
 
+
+def queue_monitor_thread():
+    while True:
+        try:
+
+            logger.info("Checking if Both queues are EMPTY...")
+            conn = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+            ch = conn.channel()
+
+            for qname in [QUEUE_HIST_ASSETS_NAME, QUEUE_SPARK_JOB_NAME]:
+                try:
+                    res = ch.queue_declare(queue=qname, passive=True)
+                    count = res.method.message_count
+                    with check_lock:
+                        last_known_counts[qname] = count
+                except pika.exceptions.ChannelClosedByBroker as e:
+                    if e.reply_code == 404:
+                        last_known_counts[qname] = 0
+                    else:
+                        raise
+
+            conn.close()
+
+            # Decide
+            with check_lock:
+                if last_known_counts[QUEUE_HIST_ASSETS_NAME] == 0 and \
+                   last_known_counts[QUEUE_SPARK_JOB_NAME] == 0:
+                    logger.info("Both queues EMPTY → triggering full logic / reload / sync-all")
+ #                   should_trigger_full_reload.set()   # or call function directly
+
+                    logger.info("Loading all assets in queue...")
+                    loop_download_all_decoupled()
+        except Exception as e:
+            logger.error(f"Queue monitor failed: {e}")
+
+        time.sleep(15)   # tune: 5–15 seconds is usually fine
+
+
+# ────────────────────────────────────────────────
+# In your main / start_consumer()
+# ────────────────────────────────────────────────
+
 if __name__ == "__main__":
-    logger.info("Loading all assets in queue...")
-    logger.info(f"Name:{__name__}")
-    loop_download_all_decoupled()
+
+    # Start background checker
+    monitor_thread = threading.Thread(target=queue_monitor_thread, daemon=True)
+    monitor_thread.start()
+
+    # Optional: wait once for initial empty state if desired
+    # time.sleep(10)
+
     start_consumer()
-#submit_spark_job("0", "binance")
-
-
 
 
 
