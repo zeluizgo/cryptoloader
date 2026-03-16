@@ -19,7 +19,7 @@ services:
     networks:
       - springboot-crypto_crypto-network
       - spark-hadoop_cluster-network
-      - springboot-historic_queue-net
+      - rabbitmq_queue-net
   spark-job:
     image: ubuntu-pi-03.local:5000/cryptoloader:latest
     hostname: spark-firstattempt
@@ -39,7 +39,7 @@ services:
       - YARN_CONF_DIR=/opt/spark/conf
     networks:
       - spark-hadoop_cluster-network
-      - springboot-historic_queue-net
+      - rabbitmq_queue-net
 
 volumes:
   etl_data:
@@ -54,5 +54,5 @@ networks:
     external: true
   spark-hadoop_cluster-network:
     external: true
-  springboot-historic_queue-net:
+  rabbitmq_queue-net:
     external: true
