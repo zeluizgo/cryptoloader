@@ -315,7 +315,7 @@ def reload_queue_when_all_empty():
         loop_download_all_decoupled()
 
 
-def add_to_spark_job_queue(symbol: str, exchange: str, priority: int):
+def add_to_spark_job_queue(symbol: str, exchange: str, priority: int=0):
     """Publica spark job no RabbitMQ para o consumer processar depois"""
     try:
         connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
@@ -323,22 +323,22 @@ def add_to_spark_job_queue(symbol: str, exchange: str, priority: int):
         
         channel.queue_declare(queue=QUEUE_SPARK_JOB_NAME, durable=True)
         
-        message = {"symbol": symbol, "exchange": exchange}
+        message = {"symbol": symbol, "exchange": exchange, "priority": priority}
         
         channel.basic_publish(
             exchange='',
             routing_key=QUEUE_SPARK_JOB_NAME,
             body=json.dumps(message),
-            properties=pika.BasicProperties(delivery_mode=2,priority=priority)  # persistent
+            properties=pika.BasicProperties(delivery_mode=2,priority=0)  # persistent
         )
         connection.close()
-        logger.info(f"📨 Published Spark job → {symbol} ({exchange})")
+        logger.info(f"📨 Published Spark job → {symbol} ({exchange} {priority})")
         
     except Exception as e:
         logger.error(f"❌ Failed to publish {symbol}: {e}")
 
 
-def add_to_download_queue(symbol: str, exchange: str):
+def add_to_download_queue(symbol: str, exchange: str, priority: int = 0):
     """Publica ETL Download no RabbitMQ para o consumer processar depois"""
     try:
         connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
@@ -346,16 +346,16 @@ def add_to_download_queue(symbol: str, exchange: str):
         
         channel.queue_declare(queue=QUEUE_HIST_ASSETS_NAME, durable=True)
         
-        message = {"symbol": symbol, "exchange": exchange, "priority": 0}
+        message = {"symbol": symbol, "exchange": exchange, "priority": priority}
         
         channel.basic_publish(
             exchange='',
             routing_key=QUEUE_HIST_ASSETS_NAME,
             body=json.dumps(message),
-            properties=pika.BasicProperties(delivery_mode=2)  # persistent
+            properties=pika.BasicProperties(delivery_mode=2, priority=0)  # persistent
         )
         connection.close()
-        logger.info(f"📨 Published ETL Download job → {symbol} ({exchange})")
+        logger.info(f"📨 Published ETL Download job → {symbol} ({exchange} {priority})")
         
     except Exception as e:
         logger.error(f"❌ Failed to publish {symbol}: {e}")
@@ -368,7 +368,7 @@ def callback_normal(ch, method, properties, body):
         exchange = data["exchange"]
         priority = data["priority"]
 
-        logger.info(f"🔥 Received New (normal) Symbol to do ETL Download → {symbol} ({exchange})")
+        logger.info(f"🔥 Received New (normal) Symbol to do ETL Download → {symbol} ({exchange} {priority})")
 
         etl_download(symbol, exchange, datetime(2025, 1, 1), datetime.now())
         sync_downloaded_files(symbol, exchange)
