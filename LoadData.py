@@ -321,7 +321,7 @@ def add_to_spark_job_queue(symbol: str, exchange: str, priority: int=0):
         connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
         channel = connection.channel()
         
-        channel.queue_declare(queue=QUEUE_SPARK_JOB_NAME, durable=True)
+       #channel.queue_declare(queue=QUEUE_SPARK_JOB_NAME, durable=True)
         
         message = {"symbol": symbol, "exchange": exchange, "priority": priority}
         
@@ -329,7 +329,7 @@ def add_to_spark_job_queue(symbol: str, exchange: str, priority: int=0):
             exchange='',
             routing_key=QUEUE_SPARK_JOB_NAME,
             body=json.dumps(message),
-            properties=pika.BasicProperties(delivery_mode=2,priority=0)  # persistent
+            properties=pika.BasicProperties(delivery_mode=2,priority=priority)  # persistent
         )
         connection.close()
         logger.info(f"📨 Published Spark job → {symbol} ({exchange} {priority})")
@@ -344,7 +344,7 @@ def add_to_download_queue(symbol: str, exchange: str, priority: int = 0):
         connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
         channel = connection.channel()
         
-        channel.queue_declare(queue=QUEUE_HIST_ASSETS_NAME, durable=True)
+        #channel.queue_declare(queue=QUEUE_HIST_ASSETS_NAME, durable=True)
         
         message = {"symbol": symbol, "exchange": exchange, "priority": priority}
         
@@ -352,7 +352,7 @@ def add_to_download_queue(symbol: str, exchange: str, priority: int = 0):
             exchange='',
             routing_key=QUEUE_HIST_ASSETS_NAME,
             body=json.dumps(message),
-            properties=pika.BasicProperties(delivery_mode=2, priority=0)  # persistent
+            properties=pika.BasicProperties(delivery_mode=2, priority=priority)  # persistent
         )
         connection.close()
         logger.info(f"📨 Published ETL Download job → {symbol} ({exchange} {priority})")
