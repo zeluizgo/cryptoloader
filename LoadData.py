@@ -450,19 +450,44 @@ def queue_monitor_thread():
         time.sleep(15)   # tune: 5–15 seconds is usually fine
 
 
+def declare_queues(host='rabbitmq'):
+    """Declara as filas com prioridade habilitada. Deve ser chamado UMA VEZ no startup."""
+    try:
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
+        channel = connection.channel()
+
+        # Fila principal (spark jobs) - com prioridade
+        channel.queue_declare(
+            queue=QUEUE_SPARK_JOB_NAME,
+            durable=True,
+            arguments={'x-max-priority': 10}  # permite prioridades de 0 a 10
+        )
+        logger.info(f"Fila {QUEUE_SPARK_JOB_NAME} declarada com x-max-priority=10")
+
+        # Fila de ETL/histórico - também com prioridade (se quiser usar em ambos)
+        channel.queue_declare(
+            queue=QUEUE_HIST_ASSETS_NAME,
+            durable=True,
+            arguments={'x-max-priority': 10}
+        )
+        logger.info(f"Fila {QUEUE_HIST_ASSETS_NAME} declarada com x-max-priority=10")
+
+        connection.close()
+    except Exception as e:
+        logger.error(f"Erro ao declarar filas: {e}")
+        raise
 # ────────────────────────────────────────────────
 # In your main / start_consumer()
 # ────────────────────────────────────────────────
 
 if __name__ == "__main__":
 
+    declare_queues()  # garante que as filas existem antes de começar a consumir
+
     # Start background checker
     monitor_thread = threading.Thread(target=queue_monitor_thread, daemon=True)
     monitor_thread.start()
-
-    # Optional: wait once for initial empty state if desired
-    # time.sleep(10)
-
+    
     start_consumer()
 
 
