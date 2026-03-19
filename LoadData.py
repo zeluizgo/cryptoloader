@@ -397,7 +397,7 @@ def start_consumer():
         try:
             connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
             channel_normal = connection.channel()
-            channel_normal.queue_declare(queue=QUEUE_HIST_ASSETS_NAME, durable=True)
+            #channel_normal.queue_declare(queue=QUEUE_HIST_ASSETS_NAME, durable=True)
             channel_normal.basic_qos(prefetch_count=1)   # process one at a time
 
             channel_normal.basic_consume(queue=QUEUE_HIST_ASSETS_NAME, on_message_callback=callback_normal)
