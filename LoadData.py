@@ -302,7 +302,7 @@ def loop_download_all_decoupled():
     for asset in assets:
         exchange = asset["id"].split("_")[0]
         symbol = asset["symbol"]
-        add_to_download_queue(symbol, exchange)
+        add_to_download_queue(symbol, exchange,0)
     logger.info("✅ All ETL + sync queued in RabbitMQ to donload and sync after!")
 
 def reload_queue_when_all_empty():
@@ -338,7 +338,7 @@ def add_to_spark_job_queue(symbol: str, exchange: str, priority: int=0):
         logger.error(f"❌ Failed to publish {symbol}: {e}")
 
 
-def add_to_download_queue(symbol: str, exchange: str, priority: int = 0):
+def add_to_download_queue(symbol: str, exchange: str, iPriority: int = 0):
     """Publica ETL Download no RabbitMQ para o consumer processar depois"""
     try:
         connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
@@ -346,16 +346,16 @@ def add_to_download_queue(symbol: str, exchange: str, priority: int = 0):
         
         #channel.queue_declare(queue=QUEUE_HIST_ASSETS_NAME, durable=True)
         
-        message = {"symbol": symbol, "exchange": exchange, "priority": priority}
+        message = {"symbol": symbol, "exchange": exchange, "priority": iPriority}
         
         channel.basic_publish(
             exchange='',
             routing_key=QUEUE_HIST_ASSETS_NAME,
             body=json.dumps(message),
-            properties=pika.BasicProperties(delivery_mode=2, priority=priority)  # persistent
+            properties=pika.BasicProperties(delivery_mode=2, priority=iPriority)  # persistent
         )
         connection.close()
-        logger.info(f"📨 Published ETL Download job → {symbol} ({exchange} {priority})")
+        logger.info(f"📨 Published ETL Download job → {symbol} ({exchange} {iPriority})")
         
     except Exception as e:
         logger.error(f"❌ Failed to publish {symbol}: {e}")
