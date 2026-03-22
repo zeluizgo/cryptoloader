@@ -29,7 +29,7 @@ services:
       replicas: 1
       placement:
         constraints:
-          - node.labels.workerid = 3
+          - node.labels.workerid == 3
       restart_policy:
         condition: on-failure
     volumes:
