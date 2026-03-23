@@ -49,19 +49,25 @@ def initialize_spark_session():
         .config("spark.driver.bindAddress", "0.0.0.0") \
         .config("spark.yarn.stagingDir", "hdfs:///tmp/spark-staging") \
         .config("spark.yarn.jars", "local:///usr/spark-4.0.1-bin-hadoop3/jars/*") \
-        .config("spark.executor.instances", "4") \
+        .config("spark.dynamicAllocation.enabled", "true") \
+        .config("spark.dynamicAllocation.minExecutors", "2") \
+        .config("spark.dynamicAllocation.maxExecutors", "8") \
+        .config("spark.dynamicAllocation.executorIdleTimeout", "30s") \
+        .config("spark.dynamicAllocation.cachedExecutorIdleTimeout", "60s") \
+        .config("spark.executor.heartbeatInterval", "10s") \
+        .config("spark.network.timeout", "120s") \
+        .config("spark.yarn.am.livenessMonitor.interval-ms", "10000") \
         .config("spark.executor.memory", "512m") \
         .config("spark.executor.cores", "4") \
         .config("spark.executor.memoryOverhead", "256") \
         .config("spark.driver.memory", "512m") \
-        .config("spark.dynamicAllocation.enabled", "false") \
         .config("spark.hadoop.fs.defaultFS", "hdfs://spark-master:9000") \
         .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
         .config("spark.kryo.pool.enabled", "false") \
         .config("spark.kryo.referenceTracking", "false") \
         .config("spark.kryo.unsafe", "false") \
         .config("spark.sql.catalogImplementation", "in-memory") \
-        .config("spark.sql.adaptive.enabled", "true") \
+        .config("spark.sql.adaptive.enabled", "false") \
         .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
         .config("spark.hadoop.yarn.resourcemanager.address", "spark-master:8032") \
         .config("spark.hadoop.yarn.resourcemanager.hostname", "spark-master") \
