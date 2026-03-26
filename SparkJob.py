@@ -57,10 +57,11 @@ def initialize_spark_session():
         .config("spark.executor.heartbeatInterval", "10s") \
         .config("spark.network.timeout", "120s") \
         .config("spark.yarn.am.livenessMonitor.interval-ms", "10000") \
-        .config("spark.executor.memory", "512m") \
+        .config("spark.executor.memory", "1g") \
         .config("spark.executor.cores", "4") \
         .config("spark.executor.memoryOverhead", "256") \
-        .config("spark.driver.memory", "512m") \
+        .config("spark.driver.memory", "1g") \
+        .config("spark.sql.hive.filesourcePartitionFileCacheSize", "1g") \
         .config("spark.hadoop.fs.defaultFS", "hdfs://spark-master:9000") \
         .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
         .config("spark.kryo.pool.enabled", "false") \
