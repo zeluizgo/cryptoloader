@@ -38,6 +38,7 @@ def parse_args():
 
 
 def initialize_spark_session():
+    global spark
     logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Initializing Spark Session...")
 
     #    .appName("Job Loader for " + args.symbol + " on " + args.exchange) \
@@ -61,7 +62,7 @@ def initialize_spark_session():
         .config("spark.executor.cores", "4") \
         .config("spark.executor.memoryOverhead", "256") \
         .config("spark.driver.memory", "1g") \
-        .config("spark.sql.hive.filesourcePartitionFileCacheSize", "1g") \
+        .config("spark.sql.hive.filesourcePartitionFileCacheSize", "0") \
         .config("spark.hadoop.fs.defaultFS", "hdfs://spark-master:9000") \
         .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
         .config("spark.kryo.pool.enabled", "false") \
@@ -150,6 +151,7 @@ def initialize_spark_session():
     logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + "Databases and Tables loaded in-memory catalog.")
 
 def carga(symbol: str):
+    global spark
     for tf in possibleTimeFrames:
         logger.info(f"Processando {symbol} - timeframe {tf}")
         if spark is None:

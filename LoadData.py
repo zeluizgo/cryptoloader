@@ -49,17 +49,34 @@ def get_last_timestamp(filename: str, bSemanal: bool) -> datetime:
             logger.warning(f"Arquivo não encontrado: {filepath}")
             return None
         with open(filepath, 'r') as f:
-            last_line = f.readlines()[-1]  # última linha
+            lines = f.readlines()
+
+        if not lines:
+            logger.warning(f"Arquivo vazio: {filepath}")
+            return None
+        
+        # Pega a última linha não-vazia
+        last_line = None
+        for line in reversed(lines):
+            last_line = line.strip()
+            if last_line:
+                break
+
+        if not last_line:
+            logger.warning(f"Não encontrou linha válida em: {filepath}")
+            return None
+
+        # Extrai timestamp
+        parts = last_line.split(',')
+        if not parts or not parts[0].strip():
+            logger.error(f"Linha sem timestamp: {last_line[:100]}")
+            return None
+
+        timestamp_ms = int(parts[0].strip())
         
         # extrai o primeiro token (timestamp em ms)
-        timestamp_ms = int(last_line.split(',')[0])
-        timestamp_s = 0
-        if bSemanal:
-            timestamp_s = timestamp_ms / 1000000 # converte milisegundos para segundos
-        else:
-            # converte milissegundos para segundos
-            timestamp_s = timestamp_ms / 1000000  # seus dados parecem estar em microsegundos!
-            
+        timestamp_s = timestamp_ms / 1000000 # converte milisegundos para segundos
+
         # converte para datetime
         dt = datetime.utcfromtimestamp(timestamp_s)
         
