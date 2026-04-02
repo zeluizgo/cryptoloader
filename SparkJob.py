@@ -103,8 +103,19 @@ def initialize_spark_session():
     logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + " Spark Session initialized.")
 
     logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"Spark versão: {spark.version}")
-    logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"Catálogo: {spark.conf.get('spark.sql.catalogImplementation')}")  # → in-memory
+    logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"Catálogo: {spark.conf.get('spark.sql.catalogImplementation')}")
     logger.info(datetime.now().strftime("%Y.%m.%d\t%H:%M:%S") + f"fs.defaultFS: {spark.conf.get('spark.hadoop.fs.defaultFS')}")
+
+    try:
+        databases = [row[0] for row in spark.sql("SHOW DATABASES").collect()]
+        logger.info(f"Databases visíveis no Hive: {databases}")
+        if "crypto" in databases:
+            tables = [row[1] for row in spark.sql("SHOW TABLES IN crypto").collect()]
+            logger.info(f"Tabelas em crypto: {tables}")
+        else:
+            logger.warning("Database 'crypto' NÃO encontrado no metastore!")
+    except Exception as e:
+        logger.error(f"Falha ao listar databases/tables do Hive: {e}")
 
 
 def carga(symbol: str):
