@@ -52,8 +52,7 @@ def initialize_spark_session():
         .config("spark.yarn.queue",                             "jupyter") \
         .config("spark.yarn.stagingDir",                        "hdfs:///tmp/spark-staging") \
         .config("spark.yarn.jars",                              "local:///usr/spark-4.0.1-bin-hadoop3/jars/*") \
-        .config("spark.driver.extraClassPath",                  "/opt/delta-jars/*") \
-        .config("spark.yarn.am.memory",                         "256m") \
+.config("spark.yarn.am.memory",                         "256m") \
         .config("spark.yarn.am.livenessMonitor.interval-ms",    "10000") \
         \
         .config("spark.hadoop.fs.defaultFS",                    "hdfs://spark-master:9000") \
@@ -64,10 +63,7 @@ def initialize_spark_session():
         .config("spark.hadoop.hive.metastore.uris",             "thrift://hive-server:9083") \
         .config("spark.sql.warehouse.dir",                      "hdfs://spark-master:9000/user/hive/warehouse") \
         \
-        .config("spark.sql.extensions",                         "io.delta.sql.DeltaSparkSessionExtension") \
-        .config("spark.sql.catalog.spark_catalog",              "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
-        \
-        .config("spark.executor.memory",                        "1g") \
+.config("spark.executor.memory",                        "1g") \
         .config("spark.executor.memoryOverhead",                "384") \
         .config("spark.executor.cores",                         "4") \
         .config("spark.driver.memory",                          "1g") \
