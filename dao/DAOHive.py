@@ -1,5 +1,6 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import lit, col
+from pyspark.sql.functions import lit, col, max
+import pyspark.sql.functions as F
 from pyspark.sql import  DataFrame
 
 #TO-DO ALL: comentar todos os métodos:
@@ -26,102 +27,123 @@ def de_para_crypto_database(timeframe) -> str:
       return "binance_monthly_hist_w1"
   return ""
 
-#def read_market_from_hive(index:str, timeframe:str, spark:SparkSession) -> DataFrame:
 
-#    hive_table = de_para_crypto_database(timeframe)
+def get_latest_partition_date(spark, table, index_value):
+    parts = spark.sql(f"SHOW PARTITIONS {table}")
+    return (
+        parts
+        .filter(F.col("partition").startswith(f"index={index_value}/"))
+        .select(
+            F.regexp_extract("partition", r"cuote_date=([0-9\-]+)", 1)
+            .alias("cuote_date")
+        )
+        .agg(F.max("cuote_date").alias("latest"))
+        .collect()[0]["latest"]
+    )
 
-#    dfHiveAux = read_data_from_hive ("markets_crypto", hive_table, spark)
 
-#    dfHiveAux0 = dfHiveAux.filter(dfHiveAux["index"] == lit(index))
+def get_latest_partition_year_month(spark, table, index_value):
+  parts = (
+      spark.sql(f"SHOW PARTITIONS {table}")
+      .filter(F.col("partition").startswith(f"index={index_value}/"))
+      .filter(F.col("partition").contains("cuote_month="))
+  )
+  # Extract strings
+  year_str = F.regexp_extract("partition", r"cuote_year=([0-9]{4})", 1)
+  month_str = F.regexp_extract("partition", r"cuote_month=([0-9]{2})", 1)
 
-#    return dfHiveAux0
+  # Only cast if the extracted string looks valid
+  yyyymm = (
+      F.when(
+          (F.length(year_str) == 4) & year_str.rlike(r"^[0-9]{4}$"),
+          year_str.cast("int")
+      ).otherwise(None) * 100
+      +
+      F.when(
+          (F.length(month_str) == 2) & month_str.rlike(r"^[0-9]{2}$"),
+          month_str.cast("int")
+      ).otherwise(None)
+  ).alias("yyyymm")
+
+  result = (
+          parts
+          .select(yyyymm)
+          .filter(F.col("yyyymm").isNotNull())
+          .agg(F.max("yyyymm").alias("latest"))
+          .collect()
+      )
+
+  if result and result[0]["latest"] is not None:
+      return result[0]["latest"]
+  else:
+      return None
 
 
-def read_market_lastpartition_from_hive (hive_database:str, hive_table:str, ind_curr:str, spark:SparkSession) -> DataFrame:
+def read_market_lastpartition_from_hive(database:str, table:str, ind_curr:str, spark:SparkSession) -> DataFrame:
 
-  # Step 1: Get the list of partitions for the specific index
-  partitions = spark.sql("""
-      SHOW PARTITIONS {}.{}
-      WHERE index = '{}'
-  """.format(hive_database, hive_table, ind_curr)).collect()
+  if table == "binance_monthly_hist_w1" or table == "binance_monthly_hist_d1":
+    latest_year_month = get_latest_partition_year_month(
+        spark, f"{database}.{table}",
+        ind_curr
+    )
+    if latest_year_month:
+        latest_year, latest_month = divmod(latest_year_month, 100)
 
-  if hive_table == "binance_monthly_hist_w1" or hive_table == "binance_monthly_hist_d1": # Step 2: Parse partitions to find the most recent year and month
-    # Partitions are in the format "index=BTCUSD/year=2025/month=03"
-    #latest_partition = None
-    latest_year_month = None
-    if partitions:
-        # Extract year and month from partitions and find the latest
-        partition_values = [
-            (row["partition"].split("/")[1].split("=")[1], row["partition"].split("/")[2].split("=")[1])
-            for row in partitions
-        ]
-        # Sort by year and month (assuming month is zero-padded, e.g., '03')
-        latest_year_month = max(partition_values, key=lambda x: (x[0], x[1]))
-        latest_year, latest_month = latest_year_month
-
-        return spark.read.table(hive_database + "."+ hive_table).filter(
+        return spark.read.table(database + "." + table).filter(
             (col("index") == lit(ind_curr)) & (col("cuote_year") == lit(latest_year)) & (col("cuote_month") == lit(latest_month))
         )
 
   else:
-    # Step 2: Parse partitions to find the most recent date
-    # Partitions are in the format "index=BTCUSD/date=2025-08-08"
-    latest_date = None
-    if partitions:
-        partition_dates = [row["partition"].split("/")[1].split("=")[1] for row in partitions]
-        latest_date = max(partition_dates)  # Latest date in yyyy-MM-dd format
-        
-        return spark.read.table(hive_database + "."+ hive_table).filter(
+    latest_date = get_latest_partition_date(
+        spark, f"{database}.{table}",
+        ind_curr
+    )
+    if latest_date:
+        return spark.read.table(database + "." + table).filter(
             (col("index") == lit(ind_curr)) & (col("cuote_date") == lit(latest_date))
         )
 
-
-  return spark.read.table(hive_database + "."+ hive_table).filter(
-            (col("index") == lit(ind_curr))
-        )
+  return None
 
 
 def load_crypto_to_hive(ind_curr, timeframe, spark, dfAux1, cargaZero):
 
-  hive_table = de_para_crypto_database(timeframe)
+  table = de_para_crypto_database(timeframe)
 
-  load_markets_to_hive(ind_curr, hive_table, spark, dfAux1, cargaZero)
+  load_markets_to_hive(ind_curr, table, spark, dfAux1, cargaZero)
 
-  
-def load_markets_to_hive(ind_curr, hive_table, spark, dfDadosOrigem, cargaZero):
+
+def load_markets_to_hive(ind_curr, table, spark, dfDadosOrigem, cargaZero):
 
   if not cargaZero:
 
-    dfHiveAux = read_market_lastpartition_from_hive("markets_crypto", hive_table, ind_curr, spark)
+    dfHiveAux = read_market_lastpartition_from_hive("crypto", table, ind_curr, spark)
 
+    if dfHiveAux is not None and dfHiveAux.count() > 0:
 
-    close_row = dfHiveAux.agg(max("cuote_timestamp").alias("max_timestamp")).collect()[0]["max_timestamp"]
+      close_row = dfHiveAux.agg(max("cuote_timestamp").alias("max_timestamp")).collect()[0]["max_timestamp"]
 
-    #close_row = dfHiveAux0.groupBy().max("cuote_timestamp").collect()[0][0]
-    print("close_row: " + str(close_row))
+      print("close_row: " + str(close_row))
 
-    dfAux2 = dfDadosOrigem.filter(dfDadosOrigem["cuote_timestamp"] > close_row)
+      dfAux2 = dfDadosOrigem.filter(dfDadosOrigem["cuote_timestamp"] > close_row)
 
-    append_data_to_hive("markets_crypto",hive_table,dfAux2)
+      append_data_to_hive("crypto", table, dfAux2)
+    else:
+      append_data_to_hive("crypto", table, dfDadosOrigem)
 
-    #dfAux3 = dfHiveAux0.drop("_id").union(dfAux2)
-
-    #return dfAux3
   else:
 
-    if(spark.catalog.tableExists("markets_crypto." + hive_table )):
-      spark.sql("alter table markets_crypto." + hive_table + " drop IF EXISTS partition (index = \"" + ind_curr + "\")")
+    if(spark.catalog.tableExists("crypto." + table)):
+      spark.sql("alter table crypto." + table + " drop IF EXISTS partition (index = \"" + ind_curr + "\")")
 
-    append_data_to_hive("markets_crypto",hive_table,dfDadosOrigem)
-
-    #return dfAux1
+    append_data_to_hive("crypto", table, dfDadosOrigem)
 
 
-def append_data_to_hive (hive_database:str, hive_table:str, dfDadosOrigem:DataFrame):
+def append_data_to_hive(database:str, table:str, dfDadosOrigem:DataFrame):
 
-  if hive_table == "binance_monthly_hist_w1" or hive_table == "binance_monthly_hist_d1": 
+  if table == "binance_monthly_hist_w1" or table == "binance_monthly_hist_d1":
     dfAux0 = dfDadosOrigem.drop("cuote_date")
-    dfAux0.write.partitionBy("index","cuote_year","cuote_month").format("parquet").mode("append").saveAsTable(hive_database + "."+ hive_table)
+    dfAux0.write.partitionBy("index","cuote_year","cuote_month").format("parquet").mode("append").saveAsTable(database + "." + table)
   else:
     dfAux0 = dfDadosOrigem.drop("cuote_year").drop("cuote_month")
-    dfAux0.write.partitionBy("index","cuote_date").format("parquet").mode("append").saveAsTable(hive_database + "."+ hive_table)
+    dfAux0.write.partitionBy("index","cuote_date").format("parquet").mode("append").saveAsTable(database + "." + table)
