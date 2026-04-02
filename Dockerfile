@@ -54,6 +54,13 @@ ENV SPARK_DRIVER_PYTHON=python3
 # Ship dao.zip to YARN executors automatically
 ENV PYSPARK_SUBMIT_ARGS="--py-files /app/dao.zip pyspark-shell"
 
+# ---------- Delta Lake JARs (needed by the driver running in this container) ----------
+RUN mkdir -p /opt/delta-jars && \
+    wget https://repo1.maven.org/maven2/io/delta/delta-spark_2.13/4.0.0/delta-spark_2.13-4.0.0.jar \
+        -P /opt/delta-jars/ && \
+    wget https://repo1.maven.org/maven2/io/delta/delta-storage/4.0.0/delta-storage-4.0.0.jar \
+        -P /opt/delta-jars/
+
 # Copy application files
 COPY LoadData.py .
 COPY entrypoint.sh .

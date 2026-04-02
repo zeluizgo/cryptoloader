@@ -52,7 +52,8 @@ def initialize_spark_session():
         .config("spark.yarn.queue",                             "jupyter") \
         .config("spark.yarn.stagingDir",                        "hdfs:///tmp/spark-staging") \
         .config("spark.yarn.jars",                              "local:///usr/spark-4.0.1-bin-hadoop3/jars/*") \
-.config("spark.yarn.am.memory",                         "256m") \
+        .config("spark.driver.extraClassPath",                  "/opt/delta-jars/*") \
+        .config("spark.yarn.am.memory",                         "256m") \
         .config("spark.yarn.am.livenessMonitor.interval-ms",    "10000") \
         \
         .config("spark.hadoop.fs.defaultFS",                    "hdfs://spark-master:9000") \
@@ -63,7 +64,7 @@ def initialize_spark_session():
         .config("spark.hadoop.hive.metastore.uris",             "thrift://hive-server:9083") \
         .config("spark.sql.warehouse.dir",                      "hdfs://spark-master:9000/user/hive/warehouse") \
         \
-.config("spark.executor.memory",                        "1g") \
+        .config("spark.executor.memory",                        "1g") \
         .config("spark.executor.memoryOverhead",                "384") \
         .config("spark.executor.cores",                         "4") \
         .config("spark.driver.memory",                          "1g") \
@@ -85,6 +86,7 @@ def initialize_spark_session():
         .config("spark.sql.adaptive.enabled",                   "false") \
         .config("spark.sql.hive.filesourcePartitionFileCacheSize", "52428800") \
         .config("spark.sql.hive.manageFilesourcePartitions", "false") \
+        .config("spark.ui.proxyBase", "") \
         \
         .config("spark.eventLog.enabled",                       "true") \
         .config("spark.eventLog.dir",                           "hdfs://spark-master:9000/spark-logs") \
