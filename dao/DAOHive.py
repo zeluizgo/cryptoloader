@@ -81,6 +81,9 @@ def get_latest_partition_year_month(spark, table, index_value):
 
 def read_market_lastpartition_from_hive(database:str, table:str, ind_curr:str, spark:SparkSession) -> DataFrame:
 
+  if not spark.catalog.tableExists(f"{database}.{table}"):
+    return None
+
   if table == "binance_monthly_hist_w1" or table == "binance_monthly_hist_d1":
     latest_year_month = get_latest_partition_year_month(
         spark, f"{database}.{table}",
