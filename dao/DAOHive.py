@@ -29,54 +29,28 @@ def de_para_crypto_database(timeframe) -> str:
 
 
 def get_latest_partition_date(spark, table, index_value):
-    parts = spark.sql(f"SHOW PARTITIONS {table}")
-    return (
-        parts
-        .filter(F.col("partition").startswith(f"index={index_value}/"))
-        .select(
-            F.regexp_extract("partition", r"cuote_date=([0-9\-]+)", 1)
-            .alias("cuote_date")
-        )
+    result = (
+        spark.read.table(table)
+        .filter(F.col("index") == index_value)
         .agg(F.max("cuote_date").alias("latest"))
-        .collect()[0]["latest"]
+        .collect()
     )
+    return result[0]["latest"] if result else None
 
 
 def get_latest_partition_year_month(spark, table, index_value):
-  parts = (
-      spark.sql(f"SHOW PARTITIONS {table}")
-      .filter(F.col("partition").startswith(f"index={index_value}/"))
-      .filter(F.col("partition").contains("cuote_month="))
-  )
-  # Extract strings
-  year_str = F.regexp_extract("partition", r"cuote_year=([0-9]{4})", 1)
-  month_str = F.regexp_extract("partition", r"cuote_month=([0-9]{2})", 1)
-
-  # Only cast if the extracted string looks valid
-  yyyymm = (
-      F.when(
-          (F.length(year_str) == 4) & year_str.rlike(r"^[0-9]{4}$"),
-          year_str.cast("int")
-      ).otherwise(None) * 100
-      +
-      F.when(
-          (F.length(month_str) == 2) & month_str.rlike(r"^[0-9]{2}$"),
-          month_str.cast("int")
-      ).otherwise(None)
-  ).alias("yyyymm")
-
-  result = (
-          parts
-          .select(yyyymm)
-          .filter(F.col("yyyymm").isNotNull())
-          .agg(F.max("yyyymm").alias("latest"))
-          .collect()
-      )
-
-  if result and result[0]["latest"] is not None:
-      return result[0]["latest"]
-  else:
-      return None
+    result = (
+        spark.read.table(table)
+        .filter(F.col("index") == index_value)
+        .select(
+            (F.col("cuote_year").cast("int") * 100 + F.col("cuote_month").cast("int")).alias("yyyymm")
+        )
+        .agg(F.max("yyyymm").alias("latest"))
+        .collect()
+    )
+    if result and result[0]["latest"] is not None:
+        return result[0]["latest"]
+    return None
 
 
 def read_market_lastpartition_from_hive(database:str, table:str, ind_curr:str, spark:SparkSession) -> DataFrame:
