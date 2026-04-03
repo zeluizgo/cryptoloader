@@ -76,16 +76,20 @@ def initialize_spark_session():
         .config("spark.dynamicAllocation.executorIdleTimeout",          "30s") \
         .config("spark.dynamicAllocation.cachedExecutorIdleTimeout",    "60s") \
         \
-        .config("spark.executor.heartbeatInterval",             "10s") \
-        .config("spark.network.timeout",                        "120s") \
+        .config("spark.executor.heartbeatInterval",             "20s") \
+        .config("spark.network.timeout",                        "300s") \
         \
         .config("spark.serializer",                             "org.apache.spark.serializer.KryoSerializer") \
         .config("spark.kryo.referenceTracking",                 "false") \
         .config("spark.kryo.unsafe",                            "false") \
         \
         .config("spark.sql.adaptive.enabled",                   "false") \
-        .config("spark.sql.hive.filesourcePartitionFileCacheSize", "52428800") \
-        .config("spark.sql.hive.manageFilesourcePartitions", "false") \
+        .config("spark.sql.hive.filesourcePartitionFileCacheSize", "209715200") \
+        .config("spark.sql.hive.manageFilesourcePartitions",    "false") \
+        .config("spark.hadoop.hive.metastore.client.socket.keepalive",    "true") \
+        .config("spark.hadoop.hive.metastore.client.socket.timeout",      "300") \
+        .config("spark.hadoop.hive.metastore.failure.retries",            "3") \
+        .config("spark.hadoop.hive.metastore.client.connect.retry.delay", "2") \
         .config("spark.ui.proxyBase", "") \
         \
         .config("spark.eventLog.enabled",                       "true") \

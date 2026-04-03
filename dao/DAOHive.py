@@ -28,29 +28,57 @@ def de_para_crypto_database(timeframe) -> str:
   return ""
 
 
+def _get_table_location(spark, table):
+    rows = (spark.sql(f"DESCRIBE FORMATTED {table}")
+                 .filter(F.col("col_name") == "Location")
+                 .collect())
+    return rows[0]["data_type"].strip() if rows else None
+
+
+def _hdfs_fs(spark):
+    return spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration())
+
+
+def _hdfs_path(spark, path_str):
+    return spark._jvm.org.apache.hadoop.fs.Path(path_str)
+
+
 def get_latest_partition_date(spark, table, index_value):
-    result = (
-        spark.read.table(table)
-        .filter(F.col("index") == index_value)
-        .agg(F.max("cuote_date").alias("latest"))
-        .collect()
-    )
-    return result[0]["latest"] if result else None
+    location = _get_table_location(spark, table)
+    if not location:
+        return None
+    fs = _hdfs_fs(spark)
+    index_path = _hdfs_path(spark, f"{location}/index={index_value}")
+    if not fs.exists(index_path):
+        return None
+    dates = [
+        s.getPath().getName().split("=", 1)[1]
+        for s in fs.listStatus(index_path)
+        if s.getPath().getName().startswith("cuote_date=")
+    ]
+    return max(dates) if dates else None
 
 
 def get_latest_partition_year_month(spark, table, index_value):
-    result = (
-        spark.read.table(table)
-        .filter(F.col("index") == index_value)
-        .select(
-            (F.col("cuote_year").cast("int") * 100 + F.col("cuote_month").cast("int")).alias("yyyymm")
-        )
-        .agg(F.max("yyyymm").alias("latest"))
-        .collect()
-    )
-    if result and result[0]["latest"] is not None:
-        return result[0]["latest"]
-    return None
+    location = _get_table_location(spark, table)
+    if not location:
+        return None
+    fs = _hdfs_fs(spark)
+    index_path = _hdfs_path(spark, f"{location}/index={index_value}")
+    if not fs.exists(index_path):
+        return None
+    yyyymm_values = []
+    for year_status in fs.listStatus(index_path):
+        year_name = year_status.getPath().getName()
+        if not year_name.startswith("cuote_year="):
+            continue
+        year = int(year_name.split("=", 1)[1])
+        for month_status in fs.listStatus(year_status.getPath()):
+            month_name = month_status.getPath().getName()
+            if month_name.startswith("cuote_month="):
+                month = int(month_name.split("=", 1)[1])
+                yyyymm_values.append(year * 100 + month)
+    return max(yyyymm_values) if yyyymm_values else None
 
 
 def read_market_lastpartition_from_hive(database:str, table:str, ind_curr:str, spark:SparkSession) -> DataFrame:
@@ -58,27 +86,21 @@ def read_market_lastpartition_from_hive(database:str, table:str, ind_curr:str, s
   if not spark.catalog.tableExists(f"{database}.{table}"):
     return None
 
-  if table == "binance_monthly_hist_w1" or table == "binance_monthly_hist_d1":
-    latest_year_month = get_latest_partition_year_month(
-        spark, f"{database}.{table}",
-        ind_curr
-    )
-    if latest_year_month:
-        latest_year, latest_month = divmod(latest_year_month, 100)
+  full_table = f"{database}.{table}"
+  location = _get_table_location(spark, full_table)
 
-        return spark.read.table(database + "." + table).filter(
-            (col("index") == lit(ind_curr)) & (col("cuote_year") == lit(latest_year)) & (col("cuote_month") == lit(latest_month))
-        )
+  if table == "binance_monthly_hist_w1" or table == "binance_monthly_hist_d1":
+    latest_year_month = get_latest_partition_year_month(spark, full_table, ind_curr)
+    if latest_year_month and location:
+        latest_year, latest_month = divmod(latest_year_month, 100)
+        path = f"{location}/index={ind_curr}/cuote_year={latest_year}/cuote_month={latest_month:02d}"
+        return spark.read.option("basePath", location).parquet(path)
 
   else:
-    latest_date = get_latest_partition_date(
-        spark, f"{database}.{table}",
-        ind_curr
-    )
-    if latest_date:
-        return spark.read.table(database + "." + table).filter(
-            (col("index") == lit(ind_curr)) & (col("cuote_date") == lit(latest_date))
-        )
+    latest_date = get_latest_partition_date(spark, full_table, ind_curr)
+    if latest_date and location:
+        path = f"{location}/index={ind_curr}/cuote_date={latest_date}"
+        return spark.read.option("basePath", location).parquet(path)
 
   return None
 
