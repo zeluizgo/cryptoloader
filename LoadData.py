@@ -270,7 +270,9 @@ def sync_downloaded_files(symbol: str, exchange: str):
     src_files = glob.glob(src_pattern)
     if src_files:
         for node in nodes:
-            rsync_cmd = ["rsync", "-avz", "-e", "ssh -i /home/appuser/.ssh/id_etl_rsync"] + src_files + [f"appuser@{node}:/glustervol1/work/"]
+            known_hosts = os.environ.get("CLUSTER_KNOWN_HOSTS", "/home/appuser/.ssh/known_hosts")
+            ssh_cmd = f"ssh -i /home/appuser/.ssh/id_etl_rsync -o UserKnownHostsFile={known_hosts}"
+            rsync_cmd = ["rsync", "-avz", "-e", ssh_cmd] + src_files + [f"appuser@{node}:/glustervol1/work/"]
             #logger.info(f"Running for node({node}):", " ".join(rsync_cmd))
             rs = subprocess.run(rsync_cmd) #, capture_output=True, text=True)
             logger.info(f"rsync returncode for node({node})={rs.returncode}")

@@ -12,16 +12,14 @@ echo "[entrypoint] Starting periodic ETL execution (every 15 minutes)..."
 # - stores ONLY public host keys
 # - avoids interactive SSH prompts
 # - no secrets baked into image
-#ssh-keyscan \
-#    spark-master \
-#    spark-worker-1 \
-#    spark-worker-2 \
-#    spark-worker-3 \
-#    >> /home/appuser/.ssh/known_hosts
-
-
-#chmod 644 /home/appuser/.ssh/known_hosts && \
-#    chown appuser:appuser /home/appuser/.ssh/known_hosts
+mkdir -p /tmp/ssh
+ssh-keyscan -H \
+    spark-master \
+    spark-worker-1 \
+    spark-worker-2 \
+    spark-worker-3 \
+    > /tmp/ssh/known_hosts 2>/dev/null
+export CLUSTER_KNOWN_HOSTS=/tmp/ssh/known_hosts
 
 # Infinite loop to run every 15 minutes
 
