@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import lit, col, max
+from pyspark.sql.functions import lit, col
 import pyspark.sql.functions as F
 from pyspark.sql import  DataFrame
 
@@ -93,7 +93,7 @@ def read_market_lastpartition_from_hive(database:str, table:str, ind_curr:str, s
     latest_year_month = get_latest_partition_year_month(spark, full_table, ind_curr)
     if latest_year_month and location:
         latest_year, latest_month = divmod(latest_year_month, 100)
-        path = f"{location}/index={ind_curr}/cuote_year={latest_year}/cuote_month={latest_month:02d}"
+        path = f"{location}/index={ind_curr}/cuote_year={latest_year}/cuote_month={latest_month}"
         return spark.read.option("basePath", location).parquet(path)
 
   else:
@@ -120,29 +120,31 @@ def load_markets_to_hive(ind_curr, table, spark, dfDadosOrigem, cargaZero):
 
     if dfHiveAux is not None and dfHiveAux.count() > 0:
 
-      close_row = dfHiveAux.agg(max("cuote_timestamp").alias("max_timestamp")).collect()[0]["max_timestamp"]
+      close_row = dfHiveAux.agg(F.max("cuote_timestamp").alias("max_timestamp")).collect()[0]["max_timestamp"]
 
       print("close_row: " + str(close_row))
 
       dfAux2 = dfDadosOrigem.filter(dfDadosOrigem["cuote_timestamp"] > close_row)
 
-      append_data_to_hive("crypto", table, dfAux2)
+      append_data_to_hive("crypto", table, dfAux2, spark)
     else:
-      append_data_to_hive("crypto", table, dfDadosOrigem)
+      append_data_to_hive("crypto", table, dfDadosOrigem, spark)
 
   else:
 
     if(spark.catalog.tableExists("crypto." + table)):
       spark.sql("alter table crypto." + table + " drop IF EXISTS partition (index = \"" + ind_curr + "\")")
 
-    append_data_to_hive("crypto", table, dfDadosOrigem)
+    append_data_to_hive("crypto", table, dfDadosOrigem, spark)
 
 
-def append_data_to_hive(database:str, table:str, dfDadosOrigem:DataFrame):
+def append_data_to_hive(database:str, table:str, dfDadosOrigem:DataFrame, spark:SparkSession):
+
+  location = _get_table_location(spark, f"{database}.{table}")
 
   if table == "binance_monthly_hist_w1" or table == "binance_monthly_hist_d1":
     dfAux0 = dfDadosOrigem.drop("cuote_date")
-    dfAux0.write.partitionBy("index","cuote_year","cuote_month").format("parquet").mode("append").saveAsTable(database + "." + table)
+    dfAux0.write.partitionBy("index","cuote_year","cuote_month").mode("append").parquet(location)
   else:
     dfAux0 = dfDadosOrigem.drop("cuote_year").drop("cuote_month")
-    dfAux0.write.partitionBy("index","cuote_date").format("parquet").mode("append").saveAsTable(database + "." + table)
+    dfAux0.write.partitionBy("index","cuote_date").mode("append").parquet(location)
