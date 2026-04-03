@@ -28,11 +28,12 @@ def de_para_crypto_database(timeframe) -> str:
   return ""
 
 
-def _get_table_location(spark, table):
-    rows = (spark.sql(f"DESCRIBE FORMATTED {table}")
-                 .filter(F.col("col_name") == "Location")
-                 .collect())
-    return rows[0]["data_type"].strip() if rows else None
+HDFS_BASE = "hdfs://spark-master:9000/datasets"
+
+def _get_table_location(table):
+    # table is "database.tablename" — derive path directly from known HDFS structure
+    db, tbl = table.split(".")
+    return f"{HDFS_BASE}/{db}/{tbl}"
 
 
 def _hdfs_fs(spark):
@@ -44,7 +45,7 @@ def _hdfs_path(spark, path_str):
 
 
 def get_latest_partition_date(spark, table, index_value):
-    location = _get_table_location(spark, table)
+    location = _get_table_location(table)
     if not location:
         return None
     fs = _hdfs_fs(spark)
@@ -60,7 +61,7 @@ def get_latest_partition_date(spark, table, index_value):
 
 
 def get_latest_partition_year_month(spark, table, index_value):
-    location = _get_table_location(spark, table)
+    location = _get_table_location(table)
     if not location:
         return None
     fs = _hdfs_fs(spark)
@@ -87,7 +88,7 @@ def read_market_lastpartition_from_hive(database:str, table:str, ind_curr:str, s
     return None
 
   full_table = f"{database}.{table}"
-  location = _get_table_location(spark, full_table)
+  location = _get_table_location(full_table)
 
   if table == "binance_monthly_hist_w1" or table == "binance_monthly_hist_d1":
     latest_year_month = get_latest_partition_year_month(spark, full_table, ind_curr)
@@ -126,21 +127,21 @@ def load_markets_to_hive(ind_curr, table, spark, dfDadosOrigem, cargaZero):
 
       dfAux2 = dfDadosOrigem.filter(dfDadosOrigem["cuote_timestamp"] > close_row)
 
-      append_data_to_hive("crypto", table, dfAux2, spark)
+      append_data_to_hive("crypto", table, dfAux2)
     else:
-      append_data_to_hive("crypto", table, dfDadosOrigem, spark)
+      append_data_to_hive("crypto", table, dfDadosOrigem)
 
   else:
 
     if(spark.catalog.tableExists("crypto." + table)):
       spark.sql("alter table crypto." + table + " drop IF EXISTS partition (index = \"" + ind_curr + "\")")
 
-    append_data_to_hive("crypto", table, dfDadosOrigem, spark)
+    append_data_to_hive("crypto", table, dfDadosOrigem)
 
 
-def append_data_to_hive(database:str, table:str, dfDadosOrigem:DataFrame, spark:SparkSession):
+def append_data_to_hive(database:str, table:str, dfDadosOrigem:DataFrame):
 
-  location = _get_table_location(spark, f"{database}.{table}")
+  location = _get_table_location(f"{database}.{table}")
 
   if table == "binance_monthly_hist_w1" or table == "binance_monthly_hist_d1":
     dfAux0 = dfDadosOrigem.drop("cuote_date")
