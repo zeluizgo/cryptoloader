@@ -3,6 +3,16 @@
 # Make sure we exit if any command fails
 #set -e
 
+# -------------------------
+# Read Docker secrets
+# -------------------------
+if [ -f /run/secrets/rabbitmq-user ]; then
+    export RABBITMQ_USER=$(cat /run/secrets/rabbitmq-user)
+fi
+if [ -f /run/secrets/rabbitmq-password ]; then
+    export RABBITMQ_PASSWORD=$(cat /run/secrets/rabbitmq-password)
+fi
+
 echo "[entrypoint] Starting periodic ETL execution (every 15 minutes)..."
 
 # -------------------------

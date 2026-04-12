@@ -16,7 +16,14 @@ import os
 import logging
 
 
-            
+def _pika_params(host='rabbitmq'):
+    credentials = pika.PlainCredentials(
+        os.environ.get('RABBITMQ_USER', 'guest'),
+        os.environ.get('RABBITMQ_PASSWORD', 'guest')
+    )
+    return pika.ConnectionParameters(host=host, credentials=credentials)
+
+
 import threading
 import time
 from collections import deque
@@ -325,7 +332,7 @@ def loop_download_all_decoupled():
     logger.info("✅ All ETL + sync queued in RabbitMQ to donload and sync after!")
 
 def reload_queue_when_all_empty():
-    connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+    connection = pika.BlockingConnection(_pika_params())
     channel_spark = connection.channel()
     channel_spark.queue_declare(queue=QUEUE_SPARK_JOB_NAME, durable=True)
 
@@ -337,7 +344,7 @@ def reload_queue_when_all_empty():
 def add_to_spark_job_queue(symbol: str, exchange: str, priority: int=0):
     """Publica spark job no RabbitMQ para o consumer processar depois"""
     try:
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+        connection = pika.BlockingConnection(_pika_params())
         channel = connection.channel()
         
        #channel.queue_declare(queue=QUEUE_SPARK_JOB_NAME, durable=True)
@@ -360,7 +367,7 @@ def add_to_spark_job_queue(symbol: str, exchange: str, priority: int=0):
 def add_to_download_queue(symbol: str, exchange: str, iPriority: int = 0):
     """Publica ETL Download no RabbitMQ para o consumer processar depois"""
     try:
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+        connection = pika.BlockingConnection(_pika_params())
         channel = connection.channel()
         
         #channel.queue_declare(queue=QUEUE_HIST_ASSETS_NAME, durable=True)
@@ -414,7 +421,7 @@ def callback_normal(ch, method, properties, body):
 def start_consumer():
     while True:
         try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+            connection = pika.BlockingConnection(_pika_params())
             channel_normal = connection.channel()
             #channel_normal.queue_declare(queue=QUEUE_HIST_ASSETS_NAME, durable=True)
             channel_normal.basic_qos(prefetch_count=1)   # process one at a time
@@ -437,7 +444,7 @@ def queue_monitor_thread():
         try:
 
             logger.info("Checking if Both queues are EMPTY...")
-            conn = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+            conn = pika.BlockingConnection(_pika_params())
             ch = conn.channel()
 
             for qname in [QUEUE_HIST_ASSETS_NAME, QUEUE_SPARK_JOB_NAME]:
@@ -472,7 +479,7 @@ def queue_monitor_thread():
 def declare_queues(host='rabbitmq'):
     """Declara as filas com prioridade habilitada. Deve ser chamado UMA VEZ no startup."""
     try:
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host=host))
+        connection = pika.BlockingConnection(_pika_params(host=host))
         channel = connection.channel()
 
         # Fila principal (spark jobs) - com prioridade

@@ -9,6 +9,15 @@ import pika
 import json
 import time
 import logging
+import os
+
+
+def _pika_params(host='rabbitmq'):
+    credentials = pika.PlainCredentials(
+        os.environ.get('RABBITMQ_USER', 'guest'),
+        os.environ.get('RABBITMQ_PASSWORD', 'guest')
+    )
+    return pika.ConnectionParameters(host=host, credentials=credentials)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -155,7 +164,7 @@ def callback(ch, method, properties, body):
 def start_consumer():
     while True:
         try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+            connection = pika.BlockingConnection(_pika_params())
             channel = connection.channel()
             #channel.queue_declare(queue=QUEUE_SPARK_JOB_NAME, durable=True)
             channel.basic_qos(prefetch_count=1)

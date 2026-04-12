@@ -4,15 +4,17 @@ services:
   etl-loaddata:
     image: ubuntu-pi-03.local:5000/cryptoloader:latest
     hostname: etl-firstattempt
-    container_name: etl-firstattempt
     deploy:
       mode: replicated
       replicas: 1
       placement:
         constraints:
-          - node.labels.workerid != 3
+          - node.labels.workerid == 4
       restart_policy:
         condition: on-failure
+    secrets:
+      - rabbitmq-user
+      - rabbitmq-password
     volumes:
       - etl_data:/glustervol1
       - /home/ubuntu/.ssh:/home/appuser/.ssh:ro
@@ -20,18 +22,21 @@ services:
       - springboot-crypto_crypto-network
       - spark-hadoop_cluster-network
       - rabbitmq_queue-net
+
   spark-job:
     image: ubuntu-pi-03.local:5000/cryptoloader:latest
     hostname: spark-firstattempt
-    container_name: spark-firstattempt
     deploy:
       mode: replicated
       replicas: 1
       placement:
         constraints:
-          - node.labels.workerid == 3
+          - node.labels.workerid == 2
       restart_policy:
         condition: on-failure
+    secrets:
+      - rabbitmq-user
+      - rabbitmq-password
     volumes:
       - etl_data:/glustervol1
     environment:
@@ -40,6 +45,12 @@ services:
     networks:
       - spark-hadoop_cluster-network
       - rabbitmq_queue-net
+
+secrets:
+  rabbitmq-user:
+    external: true
+  rabbitmq-password:
+    external: true
 
 volumes:
   etl_data:
