@@ -399,7 +399,7 @@ def callback_normal(ch, method, properties, body):
         etl_download(symbol, exchange, datetime(2025, 1, 1), datetime.now())
         sync_downloaded_files(symbol, exchange)
 
-        add_to_spark_job_queue(symbol, exchange,priority)  # prioridade 10 para os novos assets, para serem processados antes dos demais que estão na fila com prioridade 0
+        add_to_spark_job_queue(symbol, exchange,int(priority))  # prioridade 10 para os novos assets, para serem processados antes dos demais que estão na fila com prioridade 0
 
         ch.basic_ack(delivery_tag=method.delivery_tag)
         logger.info(f"✅ ETL do (normal -new symbol) completed: {symbol}\n")
