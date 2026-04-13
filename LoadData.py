@@ -21,7 +21,12 @@ def _pika_params(host='rabbitmq'):
         os.environ.get('RABBITMQ_USER', 'guest'),
         os.environ.get('RABBITMQ_PASSWORD', 'guest')
     )
-    return pika.ConnectionParameters(host=host, credentials=credentials)
+    return pika.ConnectionParameters(
+        host=host,
+        credentials=credentials,
+        heartbeat=600,               # 10 min — must exceed longest ETL run
+        blocked_connection_timeout=300,
+    )
 
 
 import threading
@@ -39,10 +44,15 @@ url_prefix_Monthly = "https://data.binance.vision/data/spot/monthly/klines/"
 QUEUE_SPARK_JOB_NAME = "spark_job_assets"
 QUEUE_HIST_ASSETS_NAME = "hist_assets"
 
+import concurrent.futures
+
 # Global or class-level
 last_known_counts = {"hist_assets": -1, "spark_job_assets": -1}
 check_lock = threading.Lock()
 should_trigger_full_reload = threading.Event()
+
+# Single-worker executor: ETL jobs must run one at a time (rsync + download are sequential)
+_etl_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 
 def get_last_timestamp(filename: str, bSemanal: bool) -> datetime:
@@ -387,36 +397,43 @@ def add_to_download_queue(symbol: str, exchange: str, iPriority: int = 0):
         logger.error(f"❌ Failed to publish {symbol}: {e}")
 
 
+def _do_etl_work(connection, ch, method, data):
+    """Runs the long ETL work in a thread-pool worker.
+    Acks/nacks via connection.add_callback_threadsafe so pika stays thread-safe."""
+    symbol   = data["symbol"]
+    exchange = data["exchange"]
+    priority = data["priority"]
+    try:
+        etl_download(symbol, exchange, datetime(2025, 1, 1), datetime.now())
+        sync_downloaded_files(symbol, exchange)
+        add_to_spark_job_queue(symbol, exchange, int(priority))
+        logger.info(f"✅ ETL do (normal -new symbol) completed: {symbol}\n")
+        connection.add_callback_threadsafe(
+            lambda: ch.basic_ack(delivery_tag=method.delivery_tag)
+        )
+    except Exception as e:
+        logger.error(f"❌ Error processing {symbol}: {e}")
+        connection.add_callback_threadsafe(
+            lambda: ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+        )
+
+
 def callback_normal(ch, method, properties, body):
     try:
         data = json.loads(body)
-        symbol = data["symbol"]
+        symbol   = data["symbol"]
         exchange = data["exchange"]
         priority = data["priority"]
-
         logger.info(f"🔥 Received New (normal) Symbol to do ETL Download → {symbol} ({exchange} {priority})")
 
-        etl_download(symbol, exchange, datetime(2025, 1, 1), datetime.now())
-        sync_downloaded_files(symbol, exchange)
-
-        add_to_spark_job_queue(symbol, exchange,int(priority))  # prioridade 10 para os novos assets, para serem processados antes dos demais que estão na fila com prioridade 0
-
-        ch.basic_ack(delivery_tag=method.delivery_tag)
-        logger.info(f"✅ ETL do (normal -new symbol) completed: {symbol}\n")
-        #logger.info(f"# Qtde messages in queue normal: {ch.message_count()}")
-        # Example: react only when we know queues are empty
-#        if should_trigger_full_reload.is_set():
-#            logger.info("Detected both queues drained → running full reload / final sync")
-#            loop_download_all_decoupled()   # or whatever final action
-#            should_trigger_full_reload.clear()  # prevent repeating
-
-#        if ch.() == 0:
-#            logger.info("⏳ No more messages in queue, triggering download for all assets in queue just in case...")
-#            loop_download_all_decoupled()
+        # Submit long work to the thread pool so pika's event loop keeps running
+        # (and keeps servicing heartbeats while ETL downloads/rsyncs).
+        connection = ch.connection
+        _etl_executor.submit(_do_etl_work, connection, ch, method, data)
 
     except Exception as e:
-        logger.error(f"❌ Error processing {body}: {e}")
-        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)  # retry later
+        logger.error(f"❌ Error dispatching {body}: {e}")
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
 
 def start_consumer():
     while True:
