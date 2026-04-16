@@ -13,7 +13,23 @@ if [ -f /run/secrets/rabbitmq-password ]; then
     export RABBITMQ_PASSWORD=$(cat /run/secrets/rabbitmq-password)
 fi
 
-echo "[entrypoint] Starting periodic ETL execution (every 15 minutes)..."
+echo "[entrypoint] Services will start at 01:00 AM..."
+
+# -------------------------
+# Wait until 01:00 AM
+# -------------------------
+wait_until_1am() {
+    now=$(date +%s)
+    target=$(date -d "today 01:00" +%s)
+    if [ "$now" -ge "$target" ]; then
+        target=$(date -d "tomorrow 01:00" +%s)
+    fi
+    sleep_seconds=$((target - now))
+    echo "[entrypoint] Sleeping ${sleep_seconds}s until 01:00 AM ($(date -d @$target))..."
+    sleep "$sleep_seconds"
+}
+
+wait_until_1am
 
 # -------------------------
 # 4. Preload known_hosts
