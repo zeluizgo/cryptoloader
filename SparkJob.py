@@ -17,7 +17,7 @@ def _pika_params(host='rabbitmq'):
         os.environ.get('RABBITMQ_USER', 'guest'),
         os.environ.get('RABBITMQ_PASSWORD', 'guest')
     )
-    return pika.ConnectionParameters(host=host, credentials=credentials)
+    return pika.ConnectionParameters(host=host, credentials=credentials, heartbeat=0)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
